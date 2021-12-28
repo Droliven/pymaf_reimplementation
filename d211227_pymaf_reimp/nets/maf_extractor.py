@@ -16,7 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import os.path as osp
 
-from utils.geometry import projection
+from ..utils.geometry import projection
 
 class MAF_Extractor(nn.Module):
     ''' Mesh-aligned Feature Extrator

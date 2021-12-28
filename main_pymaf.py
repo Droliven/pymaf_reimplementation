@@ -47,12 +47,9 @@ from d211227_pymaf_reimp.runs import RunnerPymaf
 
 parser = argparse.ArgumentParser(description='manual to this script')
 parser.add_argument('--resume', dest='resume', default=False, action='store_true', help='Resume from checkpoint (Use latest checkpoint by default')
-parser.add_argument('--pretrained_checkpoint', default=None, help='Load a pretrained checkpoint at the beginning training')
-
-parser.add_argument('--num_epochs', type=int, default=200, help='Total number of training epochs')
-parser.add_argument('--openpose_train_weight', default=0., help='Weight for OpenPose keypoints during training')
-parser.add_argument('--gt_train_weight', default=1., help='Weight for GT keypoints during training')
-parser.add_argument('--single_dataset', default=False, action='store_true', help='Use a single dataset')
+parser.add_argument('--pretrained_checkpoint', default="", help='Load a pretrained checkpoint at the beginning training')
+parser.add_argument('--is_single_dataset', default=False, action='store_true', help='Use a single dataset')
+parser.add_argument('--is_debug', default=False, action='store_true', help='Use a single dataset')
 
 args = parser.parse_args()
 
@@ -60,7 +57,7 @@ print("\n================== Arguments =================")
 pprint(vars(args), indent=4)
 print("==========================================\n")
 
-r = RunnerPymaf(exp_name="d211227_pymaf_reimp", device=args.device, num_works=args.num_works, is_debug=args.is_debug, args=args)
+r = RunnerPymaf(exp_name="d211227_pymaf_reimp", is_debug=args.is_debug, args=args)
 
 
 if args.is_load:

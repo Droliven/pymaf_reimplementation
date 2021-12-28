@@ -32,6 +32,29 @@ class BaseDataset(Dataset):
     """
 
     def __init__(self, eval_pve, noise_factor, rot_factor, scale_factor, dataset, ignore_3d=False, use_augmentation=True, is_train=True, DATASET_FOLDERS=None, DATASET_FILES=None, JOINT_MAP=None, JOINT_NAMES=None, J24_TO_J19=None, JOINT_REGRESSOR_TRAIN_EXTRA=None, SMPL_MODEL_DIR=None, IMG_NORM_MEAN=None, IMG_NORM_STD=None, TRAIN_BATCH_SIZE=None, IMG_RES=None, SMPL_JOINTS_FLIP_PERM=None):
+        '''
+
+        :param eval_pve:
+        :param noise_factor:
+        :param rot_factor:
+        :param scale_factor:
+        :param dataset: ['h36m', 'lsp-orig', 'mpii', 'lspet', 'coco', 'mpi-inf-3dhp']
+        :param ignore_3d:
+        :param use_augmentation:
+        :param is_train:
+        :param DATASET_FOLDERS:
+        :param DATASET_FILES:
+        :param JOINT_MAP:
+        :param JOINT_NAMES:
+        :param J24_TO_J19:
+        :param JOINT_REGRESSOR_TRAIN_EXTRA:
+        :param SMPL_MODEL_DIR:
+        :param IMG_NORM_MEAN:
+        :param IMG_NORM_STD:
+        :param TRAIN_BATCH_SIZE:
+        :param IMG_RES:
+        :param SMPL_JOINTS_FLIP_PERM:
+        '''
         super(BaseDataset, self).__init__()
 
         self.IMG_RES = IMG_RES

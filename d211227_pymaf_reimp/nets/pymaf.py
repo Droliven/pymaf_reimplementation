@@ -16,7 +16,7 @@ from .smpl import SMPL
 from .backbone_resnet import BackboneResNet
 from .maf_extractor import MAF_Extractor
 from .res_module import IUV_predict_layer
-from utils.geometry import rot6d_to_rotmat, projection, rotation_matrix_to_angle_axis
+from ..utils.geometry import rot6d_to_rotmat, projection, rotation_matrix_to_angle_axis
 
 
 class Regressor(nn.Module):

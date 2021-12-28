@@ -19,9 +19,6 @@ from .base_dataset import BaseDataset
 
 class MixedDataset(torch.utils.data.Dataset):
     def __init__(self, eval_pve, noise_factor, rot_factor, scale_factor, ignore_3d, use_augmentation, is_train, DATASET_FOLDERS, DATASET_FILES, JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR, IMG_NORM_MEAN, IMG_NORM_STD, TRAIN_BATCH_SIZE, IMG_RES, SMPL_JOINTS_FLIP_PERM):
-        # self.dataset_list = ['h36m', 'lsp-orig', 'mpii', 'lspet', 'coco', 'mpi-inf-3dhp']
-        # self.dataset_dict = {'h36m': 0, 'lsp-orig': 1, 'mpii': 2, 'lspet': 3, 'coco': 4, 'mpi-inf-3dhp': 5}
-
         self.dataset_list = ['h36m', 'lsp-orig', 'mpii', 'lspet', 'coco', 'mpi-inf-3dhp']
         self.dataset_dict = {'h36m': 0, 'lsp-orig': 1, 'mpii': 2, 'lspet': 3, 'coco': 4, 'mpi-inf-3dhp': 5}
 

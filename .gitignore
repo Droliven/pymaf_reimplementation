@@ -16,5 +16,6 @@ res/
 images/*
 outputs/*
 outputs*/
+results*/
 test/*
 events.out.*
