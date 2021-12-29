@@ -9,3 +9,4 @@
 @time    : 2021-12-27 15:50
 '''
 from .pymaf import PyMAF
+from .smpl import SMPL

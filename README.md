@@ -46,3 +46,29 @@ rm S11.tar
 cd ../../..
 ```
 
+## 异常复杂的数据情况
+
+
+### train
+
+DS | length | imgname | center | scale | pose | shape | part | S | openpose | has_smpl | maskname | partname | gender
+:---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :----
+h36m | 312188 | S1/S1_Directions_1.54138969/S1_Directions_1.54138969_000001.jpg | 1 | 1 | 1 | 1 | 1 | 1 | | | | | 
+mpii | 14810 | images/015601864.jpg | 1 | 1 |  |  | 1 |  | 1 | | | | 
+lsp-orig | 1000 | images/im0001.jpg | 1 | 1 |  |  | 1 |  | 1 | | | |
+lspet | 9428 | im00001.png | 1 | 1 |  |  | 1 |  | 1 | | | |  
+mpi-inf-3dhp | 96507 | S1/Seq1/imageFrames/video_0/frame_000001.jpg | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | | | 
+coco | 28344 | train2014/COCO_train2014_000000044474.jpg | 1 | 1 |  |  | 1 |  | 1 | | | | 
+
+### eval
+
+DS | length | imgname | center | scale | pose | shape | part | S | openpose | has_smpl | maskname | partname | gender
+:---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :----
+h36m-p1 | 109867 | images/S9_Directions_1.54138969_000001.jpg | 1 | 1 |  |  |  | 1 |  |  |  |  | 
+h36m-p2 | 27558 | images/S9_Directions_1.60457274_000001.jpg' | 1 | 1 |  |  |  | 1 |  |  |  |  | 
+h36m-p2-mosh | 26859 | S9/S9_Directions_1.60457274/S9_Directions_1.60457274_000001.jpg | 1 | 1 | 1 | 1 | 1 | 1 |  |  |  |  | 
+lsp | 1000 | images/im1001.jpg | 1 | 1 |  |  | 1 |  |  |  | 1 | 1 | 
+mpi-inf-3dhp | 2929 | mpi_inf_3dhp_test_set/TS1/imageSequence/img_000001.jpg | 1 | 1 |  |  | 1 | 1 |  |  |  |  | 
+coco | 50197 | val2014/COCO_val2014_000000537548.jpg | 1 | 1 |  |  | 1 |  |  |  |  |  | 
+3dpw | 35515 | imageFiles/downtown_enterShop_00/image_00000.jpg | 1 | 1 | 1 | 1 |  |  |  |  |  |  | 1
+

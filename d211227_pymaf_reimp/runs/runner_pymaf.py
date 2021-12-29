@@ -131,21 +131,18 @@ class RunnerPymaf():
     def finalize(self):
         self.fits_dict.save()
 
-    def save_checkpoint(self, models, optimizers, epoch, batch_idx, batch_size,
-                        total_step_count, is_best=False, save_by_step=False, interval=5):
+    def save_checkpoint(self, model, optimizer, epoch, batch_idx, batch_size, total_step_count, is_best=False, save_by_step=False, interval=5):
         """Save checkpoint."""
         timestamp = datetime.datetime.now()
-        checkpoint_filename = os.path.abspath(os.path.join(self.cfg.output_dir, "models", f'model_epoch_{epoch:02d}.pt'))
+        checkpoint_filename = os.path.abspath(os.path.join(self.cfg.output_dir, "models", f'model_epoch_{epoch:08d}.pt'))
 
         checkpoint = {}
-        for model in models:
-            model_dict = models[model].state_dict()
-            for k in list(model_dict.keys()):
-                if k.startswith('iuv2smpl.smpl.'):
-                    del model_dict[k]
-            checkpoint[model] = model_dict
-        for optimizer in optimizers:
-            checkpoint[optimizer] = optimizers[optimizer].state_dict()
+        model_dict = model.state_dict()
+        for k in list(model_dict.keys()):
+            if k.startswith('iuv2smpl.smpl.'):
+                del model_dict[k]
+        checkpoint["model"] = model_dict
+        checkpoint["optimizer"] = optimizer.state_dict()
         checkpoint['epoch'] = epoch
         checkpoint['batch_idx'] = batch_idx
         checkpoint['batch_size'] = batch_size
@@ -160,29 +157,26 @@ class RunnerPymaf():
             torch.save(checkpoint, checkpoint_filename)
             print(timestamp, 'Epoch:', epoch, 'Iteration:', batch_idx)
             print('Saving checkpoint file [' + checkpoint_filename + ']')
-            torch.save(checkpoint, checkpoint_filename)
-            print('Saved checkpoint file [' + checkpoint_filename + ']')
 
-    def load_checkpoint(self, models, optimizers, checkpoint_file=None):
+
+    def load_checkpoint(self, checkpoint_file=None):
         """Load a checkpoint."""
 
         checkpoint = torch.load(checkpoint_file)
-        for model in models:
-            if model in checkpoint:
-                model_dict = models[model].state_dict()
-                pretrained_dict = {k: v for k, v in checkpoint[model].items()
-                                   if k in model_dict.keys()}
-                model_dict.update(pretrained_dict)
-                models[model].load_state_dict(model_dict)
 
-                # models[model].load_state_dict(checkpoint[model])
-        for optimizer in optimizers:
-            if optimizer in checkpoint:
-                optimizers[optimizer].load_state_dict(checkpoint[optimizer])
-        return {'epoch': checkpoint['epoch'],
-                'batch_idx': checkpoint['batch_idx'],
-                'batch_size': checkpoint['batch_size'],
-                'total_step_count': checkpoint['total_step_count']}
+        if "model" in checkpoint:
+            model_dict = self.model.state_dict()
+            pretrained_dict = {k: v for k, v in checkpoint["model"].items() if k in model_dict.keys()}
+            model_dict.update(pretrained_dict)
+            self.model.load_state_dict(model_dict)
+        if "optimizer" in checkpoint:
+            self.optimizer.load_state_dict(checkpoint["optimizer"])
+
+        self.epoch_count = checkpoint['epoch']
+        self.step_count = checkpoint['total_step_count']
+        self.checkpoint_batch_idx = checkpoint['batch_idx']
+
+        print(f"epoch: {checkpoint['epoch']}, batch_idx: {checkpoint['batch_idx']}, batch_size: {checkpoint['batch_size']}, total_step_count: {checkpoint['total_step_count']}")
 
     def train(self, epoch):
         """Training process."""

@@ -72,8 +72,7 @@ class BaseDataset(Dataset):
         if not is_train and dataset == 'h36m-p2' and eval_pve:
             self.data = np.load(DATASET_FILES[is_train]['h36m-p2-mosh'], allow_pickle=True)
         else:
-            self.data = np.load(DATASET_FILES[is_train][dataset],
-                                allow_pickle=True)  # [imgname, center, scale, part]
+            self.data = np.load(DATASET_FILES[is_train][dataset], allow_pickle=True)  # [imgname, center, scale, part]
 
         self.imgname = self.data['imgname']
         self.dataset_dict = {dataset: 0}
