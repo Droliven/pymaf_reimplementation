@@ -69,8 +69,8 @@ class BaseDataset(Dataset):
         self.img_dir = DATASET_FOLDERS[dataset]
         self.normalize_img = Normalize(mean=IMG_NORM_MEAN, std=IMG_NORM_STD)
 
-        if not is_train and dataset == 'h36m-p2' and eval_pve:
-            self.data = np.load(DATASET_FILES[is_train]['h36m-p2-mosh'], allow_pickle=True)
+        if not is_train and dataset == 'h36m_p2' and eval_pve:
+            self.data = np.load(DATASET_FILES[is_train]['h36m_p2_mosh'], allow_pickle=True)
         else:
             self.data = np.load(DATASET_FILES[is_train][dataset], allow_pickle=True)  # [imgname, center, scale, part]
 
@@ -79,7 +79,7 @@ class BaseDataset(Dataset):
 
         print('len of {}: {}'.format(self.dataset, len(self.imgname)))
 
-        # Get paths to gt masks, if available
+        # Get paths to gt masks, 只有 lsp eval 有
         try:
             self.maskname = self.data['maskname']
         except KeyError:
@@ -96,14 +96,14 @@ class BaseDataset(Dataset):
         # If False, do not do augmentation
         self.use_augmentation = use_augmentation
 
-        # Get gt SMPL parameters, if available
+        # Get gt SMPL parameters, 只有 h36m train, mpi-inf-3dhp train, h36m-p2-mosh eval, 3dpw eval 有
         try:
             self.pose = self.data['pose'].astype(np.float)  # (N, 72)
-            self.betas = self.data['shape'].astype(np.float)  # (N, 10)
+            self.shape = self.data['shape'].astype(np.float)  # (N, 10)
 
             ################# generate final_fits file in case of it is missing #################
             # import os
-            # params_ = np.concatenate((self.pose, self.betas), axis=-1)
+            # params_ = np.concatenate((self.pose, self.shape), axis=-1)
             # out_file_fit = os.path.join('data/final_fits', self.dataset)
             # if not os.path.exists('data/final_fits'):
             #     os.makedirs('data/final_fits')
@@ -111,7 +111,7 @@ class BaseDataset(Dataset):
             # raise ValueError('Please copy {}.npy file to data/final_fits, and delete this code block.'.format(self.dataset))
             ########################################################################
 
-            if 'has_smpl' in self.data:
+            if 'has_smpl' in self.data: # 只有 mpi-inf-3dhp train 有
                 self.has_smpl = self.data['has_smpl']
             else:
                 self.has_smpl = np.ones(len(self.imgname), dtype=np.float32)
@@ -122,14 +122,14 @@ class BaseDataset(Dataset):
 
         # Get SMPL 2D keypoints
         try:
-            self.smpl_2dkps = self.data['smpl_2dkps']
+            self.smpl_2dkps = self.data['smpl_2dkps'] # 都没有
             self.has_smpl_2dkps = 1
         except KeyError:
             self.has_smpl_2dkps = 0
 
         # Get gt 3D pose, if available
         try:
-            self.pose_3d = self.data['S']
+            self.pose_3d = self.data['S'] # skeleton
             self.has_pose_3d = 1
         except KeyError:
             self.has_pose_3d = 0
@@ -138,16 +138,16 @@ class BaseDataset(Dataset):
 
         # Get 2D keypoints
         try:
-            keypoints_gt = self.data['part']
+            keypoints_gt = self.data['part']  # 2D keypoint 为什么会有 3维
         except KeyError:
             keypoints_gt = np.zeros((len(self.imgname), 24, 3))
         try:
             keypoints_openpose = self.data['openpose']
         except KeyError:
-            keypoints_openpose = np.zeros((len(self.imgname), 25, 3))
+            keypoints_openpose = np.zeros((len(self.imgname), 25, 3)) # openpose 多一个结点
         self.keypoints = np.concatenate([keypoints_openpose, keypoints_gt], axis=1)
 
-        # Get gender data, if available
+        # Get gender data, 只有 3dpw eval 有
         try:
             gender = self.data['gender']
             self.gender = np.array([0 if str(g) == 'm' else 1 for g in gender]).astype(np.int32)
@@ -250,30 +250,30 @@ class BaseDataset(Dataset):
 
     def __getitem__(self, index):
         item = {}
-        scale = self.scale[index].copy()
-        center = self.center[index].copy()
+        scale = self.scale[index].copy() # n,
+        center = self.center[index].copy() # n, 2
 
         # Get augmentation parameters
         flip, pn, rot, sc = self.augm_params()
 
         # Load image
-        imgname = join(self.img_dir, self.imgname[index])
+        imgname = join(self.img_dir, self.imgname[index]) # n
         try:
-            img = cv2.imread(imgname)[:, :, ::-1].copy().astype(np.float32)
-            orig_shape = np.array(img.shape)[:2]
+            img = cv2.imread(imgname)[:, :, ::-1].copy().astype(np.float32) # rgb: n, h, w, 3
+            orig_shape = np.array(img.shape)[:2] # h, w
         except:
             print('fail while loading {}'.format(imgname))
 
-        kp_is_smpl = True if self.dataset == 'surreal' else False
+        kp_is_smpl = False
 
         # Get SMPL parameters, if available
         if self.has_smpl[index]:
             pose = self.pose[index].copy()
-            betas = self.betas[index].copy()
+            shape = self.shape[index].copy()
             pose = self.pose_processing(pose, rot, flip)
         else:
             pose = np.zeros(72)
-            betas = np.zeros(10)
+            shape = np.zeros(10)
 
         # Process image
         img = self.rgb_processing(img, center, sc * scale, rot, flip, pn)
@@ -281,20 +281,10 @@ class BaseDataset(Dataset):
         # Store image before normalization to use it in visualization
         item['img'] = self.normalize_img(img)
         item['pose'] = torch.from_numpy(pose).float()
-        item['betas'] = torch.from_numpy(betas).float()
+        item['shape'] = torch.from_numpy(shape).float()
         item['imgname'] = imgname
 
-        # if self.has_smpl[index]:
-        #     betas_th = item['betas'].unsqueeze(0)
-        #     pose_th = item['pose'].unsqueeze(0)
-        #     smpl_out = self.smpl(betas=betas_th, body_pose=pose_th[:, 3:], global_orient=pose_th[:, :3],
-        #                             pose2rot=True)
-        #     verts = smpl_out.vertices[0]
-        #     item['verts'] = verts
-        # else:
-        #     item['verts'] = torch.zeros(6890, 3, dtype=torch.float32)
-
-        # Get 2D SMPL joints
+        # Get 2D SMPL joints, 都没有
         if self.has_smpl_2dkps:
             smpl_2dkps = self.smpl_2dkps[index].copy()
             smpl_2dkps = self.j2d_processing(smpl_2dkps, center, sc * scale, rot, f=0)
@@ -308,7 +298,7 @@ class BaseDataset(Dataset):
 
         # Get 3D pose, if available
         if self.has_pose_3d:
-            S = self.pose_3d[index].copy()
+            S = self.pose_3d[index].copy() # n, 24, 4
             item['pose_3d'] = torch.from_numpy(self.j3d_processing(S, rot, flip, kp_is_smpl)).float()
         else:
             item['pose_3d'] = torch.zeros(24, 4, dtype=torch.float32)

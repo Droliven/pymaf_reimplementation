@@ -198,7 +198,7 @@ class ConfigPymaf():
             os.makedirs(osp.join(self.output_dir, "models"))
 
         if self.platform == "Drolab":
-            DATASETS_BASE_DIR = r"G:\second_model_report_data\datas\three_dimension_reconstruction"
+            DATASETS_BASE_DIR = r"H:\datas\three_dimension_reconstruction"
             self.num_works = 0
         elif self.platform == "dlw":
             DATASETS_BASE_DIR = r"G:\second_model_report_data\datas\three_dimension_reconstruction"
@@ -221,35 +221,35 @@ class ConfigPymaf():
         COCO_ROOT = osp.join(DATASETS_BASE_DIR, 'coco') # imgs/, annotations/
         PW3D_ROOT = osp.join(DATASETS_BASE_DIR, '3dpw') # imgs
         MPI_INF_3DHP_ROOT = osp.join(DATASETS_BASE_DIR, 'mpi_inf_3dhp/mpi_inf_3dhp_train_set')
-        UPI_S1H_ROOT = osp.join(DATASETS_BASE_DIR, 'upi-s1h')
+        UPI_S1H_ROOT = osp.join(DATASETS_BASE_DIR, 'upi_s1h')
         SURREAL_ROOT = osp.join(DATASETS_BASE_DIR, 'SURREAL/data')
         threeDOH50K_ROOT = osp.join(DATASETS_BASE_DIR, '3DOH50K')
         self.ORIGIN_IMGS_DATASET_FOLDERS = {
                     'h36m': H36M_ROOT,
-                    'h36m-p1': H36M_ROOT,
-                    'h36m-p2': H36M_ROOT,
-                    'h36m-p2-mosh': H36M_ROOT,
+                    'h36m_p1': H36M_ROOT,
+                    'h36m_p2': H36M_ROOT,
+                    'h36m_p2_mosh': H36M_ROOT,
 
-                    'lsp-orig': LSP_ORIGINAL_ROOT,
+                    'lsp_orig': LSP_ORIGINAL_ROOT,
                     'lsp': LSP_ROOT,
                     'lspet': LSPET_ROOT,
                     'mpii': MPII_ROOT,
                     'coco': COCO_ROOT,
                     # 'dp_coco': COCO_ROOT,
-                    'mpi-inf-3dhp': MPI_INF_3DHP_ROOT,
+                    'mpi_inf_3dhp': MPI_INF_3DHP_ROOT,
                     '3dpw': PW3D_ROOT,
-                    # 'upi-s1h': UPI_S1H_ROOT,
+                    # 'upi_s1h': UPI_S1H_ROOT,
                     # 'surreal': SURREAL_ROOT,
                     # '3doh50k': threeDOH50K_ROOT
                 }
 
         self.PREPROCESSED_DATASET_FILES = [{
-                    'h36m-p1': osp.join(self.preprocessed_data_dir, "dataset_extras", 'h36m_valid_protocol1.npz'),
-                    'h36m-p2': osp.join(self.preprocessed_data_dir, "dataset_extras", 'h36m_valid_protocol2.npz'),
-                    'h36m-p2-mosh': osp.join(self.preprocessed_data_dir, "dataset_extras", 'h36m_mosh_valid_p2.npz'),
+                    'h36m_p1': osp.join(self.preprocessed_data_dir, "dataset_extras", 'h36m_valid_protocol1.npz'),
+                    'h36m_p2': osp.join(self.preprocessed_data_dir, "dataset_extras", 'h36m_valid_protocol2.npz'),
+                    'h36m_p2_mosh': osp.join(self.preprocessed_data_dir, "dataset_extras", 'h36m_mosh_valid_p2.npz'),
                     'lsp': osp.join(self.preprocessed_data_dir, "dataset_extras", 'lsp_dataset_test.npz'),
-                    # 'mpi-inf-3dhp': osp.join(self.preprocessed_data_dir, "dataset_extras", 'mpi_inf_3dhp_test.npz'), # 这个没有
-                    'mpi-inf-3dhp': osp.join(self.preprocessed_data_dir, "dataset_extras", 'mpi_inf_3dhp_valid.npz'),
+                    # 'mpi_inf_3dhp': osp.join(self.preprocessed_data_dir, "dataset_extras", 'mpi_inf_3dhp_test.npz'), # 这个没有
+                    'mpi_inf_3dhp': osp.join(self.preprocessed_data_dir, "dataset_extras", 'mpi_inf_3dhp_valid.npz'),
                     '3dpw': osp.join(self.preprocessed_data_dir, "dataset_extras", '3dpw_test.npz'),
                     'coco': osp.join(self.preprocessed_data_dir, "dataset_extras", 'coco_2014_val.npz'),
                     # 'dp_coco': osp.join(self.preprocessed_data_dir, "dataset_extras", 'dp_coco_2014_minival.npz'), # 这个没有
@@ -258,19 +258,19 @@ class ConfigPymaf():
                 },
                 {
                     'h36m': osp.join(self.preprocessed_data_dir, "dataset_extras", 'h36m_mosh_train.npz'),
-                    'lsp-orig': osp.join(self.preprocessed_data_dir, "dataset_extras", 'lsp_dataset_original_train.npz'),
-                    'lspet': osp.join(self.preprocessed_data_dir, "dataset_extras", 'hr-lspet_train.npz'),
+                    'lsp_orig': osp.join(self.preprocessed_data_dir, "dataset_extras", 'lsp_dataset_original_train.npz'),
+                    'lspet': osp.join(self.preprocessed_data_dir, "dataset_extras", 'hr_lspet_train.npz'),
                     'mpii': osp.join(self.preprocessed_data_dir, "dataset_extras", 'mpii_train.npz'),
                     'coco': osp.join(self.preprocessed_data_dir, "dataset_extras", 'coco_2014_train.npz'),
                     # 'dp_coco': osp.join(self.preprocessed_data_dir, "dataset_extras", 'dp_coco_2014_train.npz'),  # 这个没有
-                    'mpi-inf-3dhp': osp.join(self.preprocessed_data_dir, "dataset_extras", 'mpi_inf_3dhp_train.npz'),
+                    'mpi_inf_3dhp': osp.join(self.preprocessed_data_dir, "dataset_extras", 'mpi_inf_3dhp_train.npz'),
                     # 'surreal': osp.join(self.preprocessed_data_dir, "dataset_extras", 'surreal_train.npz'),  # 这个没有
                     # '3doh50k': osp.join(self.preprocessed_data_dir, "dataset_extras", 'threeDOH50K_trainset.npz') # 这个没有
                 }]
 
         # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> train options <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         self.single_dataname = "h36m"
-        self.eval_dataset = "h36m-p2-mosh"
+        self.eval_dataset = "h36m_p2_mosh"
         self.eval_pve = False
         self.noise_factor = 0.4
         self.rot_factor = 30
