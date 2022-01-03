@@ -345,7 +345,7 @@ class IUV_Renderer(object):
 
         faces = DP.FacesDensePose
         faces = faces[None, :, :]
-        self.faces = torch.from_numpy(faces.astype(np.int32))
+        self.faces = torch.from_numpy(faces.astype(np.int32)).contiguous()
 
         num_part = float(np.max(DP.FaceIndices))
         textures = np.array(
@@ -405,12 +405,12 @@ class IUV_Renderer(object):
         if self.vert_mapping is None:
             vertices = verts
         else:
-            vertices = verts[:, self.vert_mapping, :]
+            vertices = verts[:, self.vert_mapping, :] # [b, 7829, 3]
 
         iuv_image = self.renderer(vertices, self.faces.to(verts.device).expand(batch_size, -1, -1),
                                   self.textures.to(verts.device).expand(batch_size, -1, -1, -1, -1, -1).clone(),
                                   K=K, R=R, t=t,
                                   mode='rgb',
-                                  dist_coeffs=torch.FloatTensor([[0.] * 5]).to(verts.device))
+                                  dist_coeffs=torch.FloatTensor([[0.] * 5]).contiguous().to(verts.device))
 
         return iuv_image

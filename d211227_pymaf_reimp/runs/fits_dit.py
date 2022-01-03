@@ -24,8 +24,8 @@ class FitsDict():
 
         self.output_dir = output_dir
         self.train_dataset = train_dataset
-        self.fits_dict = {}
-        self.valid_fit_state = {}
+        self.fits_dict = {}  # 预存好的伪真值
+        self.valid_fit_state = {} # todo 这玩意儿代表啥
         # array used to flip SMPL pose parameters
         self.flipped_parts = torch.tensor(SMPL_POSE_FLIP_PERM, dtype=torch.int64)
         # Load dictionary state
@@ -94,7 +94,8 @@ class FitsDict():
 
     def flip_pose(self, pose, is_flipped):
         """flip SMPL pose parameters"""
-        is_flipped = is_flipped.byte()
+        # is_flipped = is_flipped.byte()
+        is_flipped = is_flipped.bool()
         pose_f = pose.clone()
         pose_f[is_flipped, :] = pose[is_flipped][:, self.flipped_parts]
         # we also negate the second and the third dimension of the axis-angle representation

@@ -31,7 +31,7 @@ class BaseDataset(Dataset):
     You need to update the path to each dataset in utils/path_config.py.
     """
 
-    def __init__(self, eval_pve, noise_factor, rot_factor, scale_factor, dataset, ignore_3d=False, use_augmentation=True, is_train=True, DATASET_FOLDERS=None, DATASET_FILES=None, JOINT_MAP=None, JOINT_NAMES=None, J24_TO_J19=None, JOINT_REGRESSOR_TRAIN_EXTRA=None, SMPL_MODEL_DIR=None, IMG_NORM_MEAN=None, IMG_NORM_STD=None, TRAIN_BATCH_SIZE=None, IMG_RES=None, SMPL_JOINTS_FLIP_PERM=None):
+    def __init__(self, eval_pve, noise_factor, rot_factor, scale_factor, dataset, ignore_3d=False, use_augmentation=True, is_train=True, is_debug=False, DATASET_FOLDERS=None, DATASET_FILES=None, JOINT_MAP=None, JOINT_NAMES=None, J24_TO_J19=None, JOINT_REGRESSOR_TRAIN_EXTRA=None, SMPL_MODEL_DIR=None, IMG_NORM_MEAN=None, IMG_NORM_STD=None, TRAIN_BATCH_SIZE=None, IMG_RES=None, SMPL_JOINTS_FLIP_PERM=None, SMPL_POSE_FLIP_PERM=None):
         '''
 
         :param eval_pve:
@@ -59,6 +59,7 @@ class BaseDataset(Dataset):
 
         self.IMG_RES = IMG_RES
         self.SMPL_JOINTS_FLIP_PERM = SMPL_JOINTS_FLIP_PERM
+        self.SMPL_POSE_FLIP_PERM = SMPL_POSE_FLIP_PERM
 
         self.noise_factor = noise_factor
         self.rot_factor = rot_factor
@@ -66,6 +67,7 @@ class BaseDataset(Dataset):
 
         self.dataset = dataset  # "coco"
         self.is_train = is_train
+        self.is_debug = is_debug
         self.img_dir = DATASET_FOLDERS[dataset]
         self.normalize_img = Normalize(mean=IMG_NORM_MEAN, std=IMG_NORM_STD)
 
@@ -160,7 +162,8 @@ class BaseDataset(Dataset):
                          batch_size=TRAIN_BATCH_SIZE,
                          create_transl=False)
 
-        self.faces = self.smpl.faces
+        self.faces = self.smpl.faces # 13776, 3
+        pass
 
     def augm_params(self):
         """Get augmentation parameters."""
@@ -223,6 +226,8 @@ class BaseDataset(Dataset):
 
     def j3d_processing(self, S, r, f, is_smpl=False):
         """Process gt 3D keypoints and apply all augmentation transforms."""
+        # [24, 4], [1], [1], [False] -> [24, 1]
+
         # in-plane rotation
         rot_mat = np.eye(3)
         if not r == 0:
@@ -243,7 +248,7 @@ class BaseDataset(Dataset):
         pose[:3] = rot_aa(pose[:3], r)
         # flip the pose parameters
         if f:
-            pose = flip_pose(pose)
+            pose = flip_pose(pose, self.SMPL_POSE_FLIP_PERM)
         # (72),float
         pose = pose.astype('float32')
         return pose
@@ -279,7 +284,7 @@ class BaseDataset(Dataset):
         img = self.rgb_processing(img, center, sc * scale, rot, flip, pn)
         img = torch.from_numpy(img).float()
         # Store image before normalization to use it in visualization
-        item['img'] = self.normalize_img(img)
+        item['img'] = self.normalize_img(img) # b, 3, 224, 224
         item['pose'] = torch.from_numpy(pose).float()
         item['shape'] = torch.from_numpy(shape).float()
         item['imgname'] = imgname
@@ -299,9 +304,11 @@ class BaseDataset(Dataset):
         # Get 3D pose, if available
         if self.has_pose_3d:
             S = self.pose_3d[index].copy() # n, 24, 4
-            item['pose_3d'] = torch.from_numpy(self.j3d_processing(S, rot, flip, kp_is_smpl)).float()
+            item['pose_3d'] = torch.from_numpy(self.j3d_processing(S, rot, flip, kp_is_smpl)).float() # [24, 4], [1], [1], [False] -> [24, 1]
+
         else:
             item['pose_3d'] = torch.zeros(24, 4, dtype=torch.float32)
+
 
         # Get 2D keypoints and apply augmentation transforms
         keypoints = self.keypoints[index].copy()
@@ -328,7 +335,10 @@ class BaseDataset(Dataset):
         except AttributeError:
             item['partname'] = ''
 
-        return item
+        return item # ['img', 'pose', 'shape', 'imgname', 'smpl_2dkps', 'pose_3d', 'keypoints', 'has_smpl', 'has_pose_3d', 'scale', 'center', 'orig_shape', 'is_flipped', 'rot_angle', 'gender', 'sample_index', 'dataset_name', 'maskname', 'partname']
 
     def __len__(self):
-        return len(self.imgname)
+        if not self.is_debug:
+            return len(self.imgname)
+        else:
+            return 200

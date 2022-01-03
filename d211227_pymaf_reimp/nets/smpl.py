@@ -34,24 +34,30 @@ class SMPL(_SMPL):
         self.ModelOutput.__new__.__defaults__ = (None,) * len(self.ModelOutput._fields)
 
     def forward(self, *args, **kwargs):
+        '''
+
+        :param args:
+        :param kwargs: {'betas': [b, 10], 'body_pose': [b, 23, 3, 3], 'global_orient': [b, 1, 3, 3], 'pose2rot': False}
+        :return:
+        '''
         kwargs['get_skin'] = True
         smpl_output = super().forward(*args, **kwargs)
-        extra_joints = vertices2joints(self.J_regressor_extra, smpl_output.vertices)
+        extra_joints = vertices2joints(self.J_regressor_extra, smpl_output.vertices) # [9, 6890] * [b, 6890, 3] -> [b, 9, 3]
         # smpl_output.joints: [B, 45, 3]  extra_joints: [B, 9, 3]
         vertices = smpl_output.vertices
-        joints = torch.cat([smpl_output.joints, extra_joints], dim=1)
-        smpl_joints = smpl_output.joints[:, :24]
-        joints = joints[:, self.joint_map, :]   # [B, 49, 3]
-        joints_J24 = joints[:, -24:, :]
+        joints = torch.cat([smpl_output.joints, extra_joints], dim=1) # b, 45+9, 3
+        smpl_joints = smpl_output.joints[:, :24] # [b, 24, 3] todo 为什么前 24个点 是这个意思，但总共有 45点
+        joints = joints[:, self.joint_map, :]   # [B, 49, 3] todo 为什么从 54 个取出来 49个
+        joints_J24 = joints[:, -24:, :] # 为什么一会 24 一会儿 19
         joints_J19 = joints_J24[:, self.J24_TO_J19, :]
-        output = self.ModelOutput(vertices=vertices,
-                                  global_orient=smpl_output.global_orient,
-                                  body_pose=smpl_output.body_pose,
-                                  joints=joints,
-                                  joints_J19=joints_J19,
-                                  smpl_joints=smpl_joints,
-                                  betas=smpl_output.betas,
-                                  full_pose=smpl_output.full_pose)
+        output = self.ModelOutput(vertices=vertices, # [b, 6890, 3]
+                                  global_orient=smpl_output.global_orient, # [b, 1, 3, 3]
+                                  body_pose=smpl_output.body_pose, # [b, 23, 3, 3]
+                                  joints=joints, # [b, 49, 3]
+                                  joints_J19=joints_J19, # [b, 19, 3]
+                                  smpl_joints=smpl_joints, # [b, 24, 3]
+                                  betas=smpl_output.betas, # [b, 10]
+                                  full_pose=smpl_output.full_pose) # NONE
         return output
 
 def get_smpl_faces(SMPL_MODEL_DIR):

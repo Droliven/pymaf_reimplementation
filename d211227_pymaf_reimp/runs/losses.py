@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from ..utils.geometry import batch_rodrigues, perspective_projection, estimate_translation
 
 
-def keypoint_loss(pred_keypoints_2d, gt_keypoints_2d, openpose_weight, gt_weight):
+def keypoint_loss(criterion_keypoints, pred_keypoints_2d, gt_keypoints_2d, openpose_weight, gt_weight):
     """ Compute 2D reprojection loss on the keypoints.
     The loss is weighted by the confidence.
     The available keypoints are different for each dataset.
@@ -22,11 +22,11 @@ def keypoint_loss(pred_keypoints_2d, gt_keypoints_2d, openpose_weight, gt_weight
     conf = gt_keypoints_2d[:, :, -1].unsqueeze(-1).clone()
     conf[:, :25] *= openpose_weight
     conf[:, 25:] *= gt_weight
-    loss = (conf * self.criterion_keypoints(pred_keypoints_2d, gt_keypoints_2d[:, :, :-1])).mean()
+    loss = (conf * criterion_keypoints(pred_keypoints_2d, gt_keypoints_2d[:, :, :-1])).mean()
     return loss
 
 
-def keypoint_3d_loss(pred_keypoints_3d, gt_keypoints_3d, has_pose_3d):
+def keypoint_3d_loss(criterion_keypoints, pred_keypoints_3d, gt_keypoints_3d, has_pose_3d):
     """Compute 3D keypoint loss for the examples that 3D keypoint annotations are available.
     The loss is weighted by the confidence.
     """
@@ -41,32 +41,32 @@ def keypoint_3d_loss(pred_keypoints_3d, gt_keypoints_3d, has_pose_3d):
         gt_keypoints_3d = gt_keypoints_3d - gt_pelvis[:, None, :]
         pred_pelvis = (pred_keypoints_3d[:, 2, :] + pred_keypoints_3d[:, 3, :]) / 2
         pred_keypoints_3d = pred_keypoints_3d - pred_pelvis[:, None, :]
-        return (conf * self.criterion_keypoints(pred_keypoints_3d, gt_keypoints_3d)).mean()
+        return (conf * criterion_keypoints(pred_keypoints_3d, gt_keypoints_3d)).mean()
     else:
-        return torch.FloatTensor(1).fill_(0.).to(self.device)
+        return torch.FloatTensor(1).fill_(0.).to(pred_keypoints_3d.device)
 
 
-def shape_loss(pred_vertices, gt_vertices, has_smpl):
+def shape_loss(criterion_shape, pred_vertices, gt_vertices, has_smpl):
     """Compute per-vertex loss on the shape for the examples that SMPL annotations are available."""
     pred_vertices_with_shape = pred_vertices[has_smpl]
     gt_vertices_with_shape = gt_vertices[has_smpl]
     if len(gt_vertices_with_shape) > 0:
-        return self.criterion_shape(pred_vertices_with_shape, gt_vertices_with_shape)
+        return criterion_shape(pred_vertices_with_shape, gt_vertices_with_shape)
     else:
-        return torch.FloatTensor(1).fill_(0.).to(self.device)
+        return torch.FloatTensor(1).fill_(0.).to(pred_vertices.device)
 
 
-def smpl_losses(pred_rotmat, pred_betas, gt_pose, gt_betas, has_smpl):
+def smpl_losses(criterion_regr, pred_rotmat, pred_betas, gt_pose, gt_betas, has_smpl):
     pred_rotmat_valid = pred_rotmat[has_smpl]
     gt_rotmat_valid = batch_rodrigues(gt_pose.view(-1, 3)).view(-1, 24, 3, 3)[has_smpl]
     pred_betas_valid = pred_betas[has_smpl]
     gt_betas_valid = gt_betas[has_smpl]
     if len(pred_rotmat_valid) > 0:
-        loss_regr_pose = self.criterion_regr(pred_rotmat_valid, gt_rotmat_valid)
-        loss_regr_betas = self.criterion_regr(pred_betas_valid, gt_betas_valid)
+        loss_regr_pose = criterion_regr(pred_rotmat_valid, gt_rotmat_valid)
+        loss_regr_betas = criterion_regr(pred_betas_valid, gt_betas_valid)
     else:
-        loss_regr_pose = torch.FloatTensor(1).fill_(0.).to(self.device)
-        loss_regr_betas = torch.FloatTensor(1).fill_(0.).to(self.device)
+        loss_regr_pose = torch.FloatTensor(1).fill_(0.).to(pred_rotmat.device)
+        loss_regr_betas = torch.FloatTensor(1).fill_(0.).to(pred_rotmat.device)
     return loss_regr_pose, loss_regr_betas
 
 

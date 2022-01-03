@@ -2,7 +2,7 @@
 # encoding: utf-8
 '''
 @project : pymaf_reimp
-@file    : eval_pymaf.py
+@file    : eval_d211227_pymaf.py
 @author  : Levon
 @contact : levondang@163.com
 @ide     : PyCharm
@@ -33,15 +33,15 @@ import numpy as np
 import torchgeometry as tgm
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-import pprint
+from pprint import pprint
 
-from ..datas import BaseDataset
-from ..nets import SMPL, PyMAF
-from ..cfgs import ConfigPymaf
-from ..utils.imutils import uncrop
-from ..utils.uv_vis import vis_smpl_iuv
-from ..utils.pose_utils import reconstruction_error
-from ..utils.part_utils import PartRenderer  # used by lsp
+from d211227_pymaf_reimp.datas import BaseDataset
+from d211227_pymaf_reimp.nets import SMPL, PyMAF
+from d211227_pymaf_reimp.cfgs import ConfigPymaf
+from d211227_pymaf_reimp.utils.imutils import uncrop
+from d211227_pymaf_reimp.utils.uv_vis import vis_smpl_iuv
+from d211227_pymaf_reimp.utils.pose_utils import reconstruction_error
+from d211227_pymaf_reimp.utils.part_utils import PartRenderer  # used by lsp
 
 
 def run_evaluation(model, dataset):
@@ -60,8 +60,7 @@ def run_evaluation(model, dataset):
     model.to(device)
 
     # Load SMPL model
-    smpl_neutral = SMPL(cfg.JOINT_MAP, cfg.JOINT_NAMES, cfg.J24_TO_J19, cfg.JOINT_REGRESSOR_TRAIN_EXTRA, cfg.SMPL_MODEL_DIR,
-                        create_transl=False).to(device)
+    smpl_neutral = SMPL(cfg.JOINT_MAP, cfg.JOINT_NAMES, cfg.J24_TO_J19, cfg.JOINT_REGRESSOR_TRAIN_EXTRA, cfg.SMPL_MODEL_DIR, create_transl=False).to(device)
     smpl_male = SMPL(cfg.JOINT_MAP, cfg.JOINT_NAMES, cfg.J24_TO_J19, cfg.JOINT_REGRESSOR_TRAIN_EXTRA, cfg.SMPL_MODEL_DIR,
                      gender='male',
                      create_transl=False).to(device)
@@ -69,7 +68,7 @@ def run_evaluation(model, dataset):
                        gender='female',
                        create_transl=False).to(device)
 
-    renderer = PartRenderer()
+    renderer = PartRenderer(JOINT_MAP=cfg.JOINT_MAP, JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=cfg.SMPL_MODEL_DIR, VERTEX_TEXTURE_FILE=cfg.VERTEX_TEXTURE_FILE, CUBE_PARTS_FILE=cfg.CUBE_PARTS_FILE)
 
     # Regressor for H36m joints
     J_regressor = torch.from_numpy(np.load(cfg.JOINT_REGRESSOR_H36M)).float()
@@ -118,23 +117,23 @@ def run_evaluation(model, dataset):
     eval_masks = False
     eval_parts = False
     # Choose appropriate evaluation for each dataset
-    if dataset_name == 'h36m-p1' or dataset_name == 'h36m-p2' or dataset_name == 'h36m-p2-mosh' \
-            or dataset_name == '3dpw' or dataset_name == 'mpi-inf-3dhp' or dataset_name == '3doh50k':
+    if dataset_name == 'h36m_p1' or dataset_name == 'h36m_p2' or dataset_name == 'h36m_p2_mosh' \
+            or dataset_name == '3dpw' or dataset_name == 'mpi_inf_3dhp' or dataset_name == '3doh50k':
         eval_pose = True
     elif dataset_name == 'lsp':
         eval_masks = True
         eval_parts = True
-        annot_path = cfg.ORIGIN_IMGS_DATASET_FOLDERS['upi-s1h']
+        annot_path = cfg.ORIGIN_IMGS_DATASET_FOLDERS['upi_s1h']
 
-    joint_mapper_h36m = cfg.H36M_TO_J17 if dataset_name == 'mpi-inf-3dhp' else cfg.H36M_TO_J14
-    joint_mapper_gt = cfg.J24_TO_J17 if dataset_name == 'mpi-inf-3dhp' else cfg.J24_TO_J14
+    joint_mapper_h36m = cfg.H36M_TO_J17 if dataset_name == 'mpi_inf_3dhp' else cfg.H36M_TO_J14
+    joint_mapper_gt = cfg.J24_TO_J17 if dataset_name == 'mpi_inf_3dhp' else cfg.J24_TO_J14
     # Iterate over the entire dataset
     cnt = 0
     results_dict = {'id': [], 'pred': [], 'pred_pa': [], 'gt': []}
     for step, batch in enumerate(tqdm(data_loader, desc='Eval', total=len(data_loader))):
         # Get ground truth annotations from the batch
         gt_pose = batch['pose'].to(device)
-        gt_betas = batch['betas'].to(device)
+        gt_betas = batch['shape'].to(device)
         gt_smpl_out = smpl_neutral(betas=gt_betas, body_pose=gt_pose[:, 3:], global_orient=gt_pose[:, :3])
         gt_vertices_nt = gt_smpl_out.vertices
         images = batch['img'].to(device)
@@ -146,7 +145,7 @@ def run_evaluation(model, dataset):
             s_id += np.array([int(item.split('/')[-1][4:-4]) for item in batch['imgname']])
             results_dict['id'].append(s_id)
 
-        if dataset_name == 'h36m-p2':
+        if dataset_name == 'h36m_p2':
             action = [im_path.split('/')[-1].split('.')[0].split('_')[1] for im_path in batch['imgname']]
             for act_i in range(len(action)):
 
@@ -179,7 +178,7 @@ def run_evaluation(model, dataset):
             # Regressor broadcasting
             J_regressor_batch = J_regressor[None, :].expand(pred_vertices.shape[0], -1, -1).to(device)
             # Get 14 ground truth joints
-            if 'h36m' in dataset_name or 'mpi-inf' in dataset_name or '3doh50k' in dataset_name:
+            if 'h36m' in dataset_name or 'mpi_inf' in dataset_name or '3doh50k' in dataset_name:
                 gt_keypoints_3d = batch['pose_3d'].cuda()
                 gt_keypoints_3d = gt_keypoints_3d[:, joint_mapper_gt, :-1]
             # For 3DPW get the 14 common joints from the rendered shape
@@ -317,8 +316,8 @@ def run_evaluation(model, dataset):
         print('Parts F1 (BG): ', parts_f1[[0, 1, 2, 3, 4, 5, 6]].mean())
         print()
 
-    if dataset_name == 'h36m-p2':
-        print('Note: PVE is not available for h36m-p2. To evaluate PVE, use h36m-p2-mosh instead.')
+    if dataset_name == 'h36m_p2':
+        print('Note: PVE is not available for h36m_p2. To evaluate PVE, use h36m_p2_mosh instead.')
         for act in action_idxes:
             act_idx = action_idxes[act]
             act_pve = [pve[i] for i in act_idx]
@@ -341,15 +340,50 @@ def run_evaluation(model, dataset):
 
 
 if __name__ == '__main__':
+
+    # ****************************************************************************************************************
+    # *********************************************** Environments ***************************************************
+    # ****************************************************************************************************************
+
+    import numpy as np
+    import random
+    import torch
+    import os
+
+    os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+
+    def seed_torch(seed=3450):
+        # random.seed(seed)
+        # os.environ['PYTHONHASHSEED'] = str(seed)
+        # np.random.seed(seed)
+        # torch.manual_seed(seed)
+        # torch.cuda.manual_seed(seed)
+        # torch.cuda.manual_seed_all(seed) # if you are using multi-GPU.
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.enabled = True
+
+
+    seed_torch()
+
+    # ****************************************************************************************************************
+    # *********************************************** Main ***********************************************************
+    # ****************************************************************************************************************
+
+
     # Define command-line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', choices=['h36m-p1', 'h36m-p2', 'h36m-p2-mosh', 'lsp', '3dpw', 'mpi-inf-3dhp'], default='h36m-p2', help='Choose evaluation dataset')
-    parser.add_argument('--batch_size', default=32, type=int, help='Batch size for testing')
+    parser.add_argument('--dataset', choices=['h36m_p1', 'h36m_p2', 'h36m_p2_mosh', 'lsp', '3dpw', 'mpi_inf_3dhp'], default='h36m_p2', help='Choose evaluation dataset')
+    # parser.add_argument('--batch_size', default=32, type=int, help='Batch size for testing')
+    parser.add_argument('--batch_size', default=8, type=int, help='Batch size for testing')
     parser.add_argument('--log_freq', default=50, type=int, help='Frequency of printing intermediate results')
     parser.add_argument('--result_file', default=None, help='If set, save detections to a .npz file')
     parser.add_argument('--ratio', default=1, type=int, help='image size ration for visualization')
+    parser.add_argument('--is_debug', default=False, type=bool, help='')
 
-    parser.add_argument('--checkpoint', default=r"G:\second_model_report_data\datas\three_dimension_reconstruction\spin_pymaf_data\pretrained_model\PyMAF_model_checkpoint.pt", help='Path to network checkpoint')
+    parser.add_argument('--checkpoint', default=r"H:\datas\three_dimension_reconstruction\spin_pymaf_data\pretrained_model\PyMAF_model_checkpoint.pt", help='Path to network checkpoint')
 
     args = parser.parse_args()
     cfg = ConfigPymaf()
@@ -379,7 +413,18 @@ if __name__ == '__main__':
         print(f"loaded from {args.checkpoint}!")
 
     # Setup evaluation dataset
-    dataset = BaseDataset(eval_pve=cfg.eval_pve, noise_factor=cfg.noise_factor, rot_factor=cfg.rot_factor, scale_factor=cfg.scale_factor, dataset=args.dataset, ignore_3d=False, use_augmentation=True, is_train=False, DATASET_FOLDERS=cfg.ORIGIN_IMGS_DATASET_FOLDERS, DATASET_FILES=cfg.PREPROCESSED_DATASET_FILES, JOINT_MAP=cfg.JOINT_MAP, JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=cfg.SMPL_MODEL_DIR, IMG_NORM_MEAN=cfg.IMG_NORM_MEAN, IMG_NORM_STD=cfg.IMG_NORM_STD, TRAIN_BATCH_SIZE=cfg.TRAIN_BATCHSIZE, IMG_RES=cfg.IMG_RES, SMPL_JOINTS_FLIP_PERM=cfg.SMPL_JOINTS_FLIP_PERM)
+    dataset = BaseDataset(eval_pve=cfg.eval_pve, noise_factor=cfg.noise_factor, rot_factor=cfg.rot_factor, scale_factor=cfg.scale_factor, dataset=args.dataset, ignore_3d=False, use_augmentation=True, is_train=False, is_debug=args.is_debug, DATASET_FOLDERS=cfg.ORIGIN_IMGS_DATASET_FOLDERS, DATASET_FILES=cfg.PREPROCESSED_DATASET_FILES, JOINT_MAP=cfg.JOINT_MAP, JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=cfg.SMPL_MODEL_DIR, IMG_NORM_MEAN=cfg.IMG_NORM_MEAN, IMG_NORM_STD=cfg.IMG_NORM_STD, TRAIN_BATCH_SIZE=cfg.TRAIN_BATCHSIZE, IMG_RES=cfg.IMG_RES, SMPL_JOINTS_FLIP_PERM=cfg.SMPL_JOINTS_FLIP_PERM)
 
     # Run evaluation
     run_evaluation(model, dataset)
+
+    '''
+    *** Final Results ***
+    ('H:\\datas\\three_dimension_reconstruction\\spin_pymaf_data\\pretrained_model', 'PyMAF_model_checkpoint.pt') h36m_p2
+    PVE: 927.96924640629
+    MPJPE: 57.54297302543936
+    Reconstruction Error: 40.537164264158314
+    
+    Note: PVE is not available for h36m_p2. To evaluate PVE, use h36m_p2_mosh instead.
+    ['action err', '35.640821577010065', '40.85537582095748', '38.20171299232828', '38.50875760645957', '39.960567590515694', '46.72963761971487', '33.420332918819014', '36.831235667347414', '49.470904187136696', '50.6011259159167', '40.500939496936624', '37.14588880342355', '46.13034731603964', '37.049556348822875', '33.13781894072585', 'Directions', 'Discussion', 'Eating', 'Greeting', 'Phoning', 'Photo', 'Posing', 'Purchases', 'Sitting', 'SittingDown', 'Smoking', 'Waiting', 'WalkDog', 'WalkTogether', 'Walking']
+    '''

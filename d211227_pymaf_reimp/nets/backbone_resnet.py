@@ -145,7 +145,7 @@ class BackboneResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-
+        # b, 3, 224, 224
         batch_size = x.shape[0]
 
         x = self.conv1(x)
@@ -156,10 +156,10 @@ class BackboneResNet(nn.Module):
         x1 = self.layer1(x)
         x2 = self.layer2(x1)
         x3 = self.layer3(x2)
-        x4 = self.layer4(x3)
+        x4 = self.layer4(x3) # [b, 2048, 7, 7]
 
         xf = self.avgpool(x4)
-        xf = xf.view(xf.size(0), -1)
+        xf = xf.view(xf.size(0), -1) # [b, 2048]
 
         x_featmap = x4
 

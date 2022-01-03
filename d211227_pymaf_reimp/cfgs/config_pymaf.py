@@ -25,7 +25,8 @@ class ConfigPymaf():
         self.VAL_VIS_BATCH_FREQ = 200
         self.TRAIN_VIS_ITER_FERQ = 1000
         self.TRAIN_VAL_LOOP = True
-        self.TRAIN_BATCHSIZE = 64
+        # self.TRAIN_BATCHSIZE = 64
+        self.TRAIN_BATCHSIZE = 16
         self.TEST_BATCHSIZE = 32
 
         self.SEED_VALUE = -1
@@ -193,7 +194,7 @@ class ConfigPymaf():
                              + [25 + i for i in self.SMPL_JOINTS_FLIP_PERM]
 
         # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> path configs <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-        self.output_dir = osp.join("./results/", exp_name)
+        self.output_dir = osp.join(osp.abspath("./results/"), exp_name)
         if not osp.exists(osp.join(self.output_dir, "models")):
             os.makedirs(osp.join(self.output_dir, "models"))
 
@@ -212,6 +213,8 @@ class ConfigPymaf():
         self.FINAL_FITS_DIR = osp.join(self.preprocessed_data_dir, "spin_fits")
         self.STATIC_FITS_DIR = osp.join(self.preprocessed_data_dir, "static_fits")
         self.UV_data_path = osp.join(self.preprocessed_data_dir, "UV_data")
+        self.CUBE_PARTS_FILE = osp.join(self.preprocessed_data_dir, "cube_parts.npy")
+        self.VERTEX_TEXTURE_FILE = osp.join(self.preprocessed_data_dir, "vertex_texture.npy")
 
         H36M_ROOT = osp.join(DATASETS_BASE_DIR, 'h36m/imgs')  # img/, annotation/
         LSP_ROOT = osp.join(DATASETS_BASE_DIR, 'lsp/lsp_dataset_small')  # img/, annotation/

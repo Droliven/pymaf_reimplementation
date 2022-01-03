@@ -48,7 +48,7 @@ from d211227_pymaf_reimp.runs import RunnerPymaf
 parser = argparse.ArgumentParser(description='manual to this script')
 parser.add_argument('--is_load', default=False, action='store_true', help='Resume from checkpoint (Use latest checkpoint by default')
 parser.add_argument('--is_single_dataset', default=True, action='store_true', help='Use a single dataset')
-parser.add_argument('--is_debug', default=False, action='store_true', help='Use a single dataset')
+parser.add_argument('--is_debug', default=True, action='store_true', help='Use a single dataset')
 parser.add_argument('--is_train', default=True, action='store_true', help='Use a single dataset')
 
 parser.add_argument('--pretrained_checkpoint_path', default="", help='Load a pretrained checkpoint at the beginning training')

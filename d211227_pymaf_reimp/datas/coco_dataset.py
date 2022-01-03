@@ -56,8 +56,12 @@ class COCODataset(BaseDataset):
         [16,14],[14,12],[17,15],[15,13],[12,13],[6,12],[7,13], [6,7],[6,8],
         [7,9],[8,10],[9,11],[2,3],[1,2],[1,3],[2,4],[3,5],[4,6],[5,7]]
     '''
-    def __init__(self, eval_pve, noise_factor, rot_factor, scale_factor, ds, subset, ignore_3d, use_augmentation, is_train, DATASET_FOLDERS, DATASET_FILES, JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR, IMG_NORM_MEAN, IMG_NORM_STD, TRAIN_BATCH_SIZE, IMG_RES, SMPL_JOINTS_FLIP_PERM):
-        super(BaseDataset).__init__(eval_pve, noise_factor, rot_factor, scale_factor, ds, ignore_3d, use_augmentation, is_train, DATASET_FOLDERS, DATASET_FILES, JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR, IMG_NORM_MEAN, IMG_NORM_STD, TRAIN_BATCH_SIZE, IMG_RES, SMPL_JOINTS_FLIP_PERM)
+    def __init__(self, eval_pve, noise_factor, rot_factor, scale_factor, ds, subset, ignore_3d, use_augmentation, is_train, is_debug,
+                 DATASET_FOLDERS, DATASET_FILES, JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR,
+                 IMG_NORM_MEAN, IMG_NORM_STD, TRAIN_BATCH_SIZE, IMG_RES, SMPL_JOINTS_FLIP_PERM, SMPL_POSE_FLIP_PERM):
+        super().__init__(eval_pve, noise_factor, rot_factor, scale_factor, ds, ignore_3d, use_augmentation, is_train, is_debug,
+                                    DATASET_FOLDERS, DATASET_FILES, JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA,
+                                    SMPL_MODEL_DIR, IMG_NORM_MEAN, IMG_NORM_STD, TRAIN_BATCH_SIZE, IMG_RES, SMPL_JOINTS_FLIP_PERM, SMPL_POSE_FLIP_PERM)
 
         self.num_joints = 0
         self.pixel_std = 200
@@ -339,17 +343,9 @@ class COCODataset(BaseDataset):
             self.image_thre, num_boxes))
         return kpt_db
 
-    def evaluate(self, cfg, preds, output_dir, all_boxes, img_path, ckp_name,
-                 *args, **kwargs):
-        res_folder = os.path.join(output_dir, 'results')
-        if not os.path.exists(res_folder):
-            try:
-                os.makedirs(res_folder)
-            except Exception:
-                print('Fail to make {}'.format(res_folder))
-
+    def evaluate(self, preds, output_dir, all_boxes, img_path, ckp_name, *args, **kwargs):
         res_file = os.path.join(
-            res_folder, 'keypoints_{}_results_{}.json'.format(
+            output_dir, 'keypoints_{}_results_{}.json'.format(
                 self.image_set, ckp_name)
         )
 
@@ -411,7 +407,7 @@ class COCODataset(BaseDataset):
             oks_nmsed_kpts, res_file)
         if 'test' not in self.image_set:
             info_str = self._do_python_keypoint_eval(
-                res_file, res_folder)
+                res_file, output_dir)
             name_value = OrderedDict(info_str)
             return name_value, name_value['AP']
         else:

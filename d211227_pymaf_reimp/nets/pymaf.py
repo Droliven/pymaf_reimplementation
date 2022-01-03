@@ -106,14 +106,15 @@ class Regressor(nn.Module):
         return output
 
     def forward_init(self, x, init_pose=None, init_shape=None, init_cam=None, n_iter=1, J_regressor=None):
+        # [b, 2048]
         batch_size = x.shape[0]
-
+        # todo 为什么这里 init_pose 是 144, 因为用的是 rot6d 表示法
         if init_pose is None:
-            init_pose = self.init_pose.expand(batch_size, -1)
+            init_pose = self.init_pose.expand(batch_size, -1) # [1, 144] -> [b, 144]
         if init_shape is None:
-            init_shape = self.init_shape.expand(batch_size, -1)
+            init_shape = self.init_shape.expand(batch_size, -1) # [1, 10] -> [b, 10]
         if init_cam is None:
-            init_cam = self.init_cam.expand(batch_size, -1)
+            init_cam = self.init_cam.expand(batch_size, -1) # [1, 3] -> [b, 3]
 
         pred_pose = init_pose
         pred_shape = init_shape
@@ -127,6 +128,14 @@ class Regressor(nn.Module):
             global_orient=pred_rotmat[:, 0].unsqueeze(1),
             pose2rot=False
         )
+        # {vertices = vertices,  # [b, 6890, 3]
+        # global_orient = smpl_output.global_orient,  # [b, 1, 3, 3]
+        # body_pose = smpl_output.body_pose,  # [b, 23, 3, 3]
+        # joints = joints,  # [b, 49, 3]
+        # joints_J19 = joints_J19,  # [b, 19, 3]
+        # smpl_joints = smpl_joints,  # [b, 24, 3]
+        # betas = smpl_output.betas,  # [b, 10]
+        # full_pose = smpl_output.full_pose)}  # NONE
 
         pred_vertices = pred_output.vertices
         pred_joints = pred_output.joints
@@ -264,11 +273,17 @@ class PyMAF(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x, J_regressor=None):
+        '''
+
+        :param x: image [b, 3, 224, 224]
+        :param J_regressor:
+        :return:
+        '''
 
         batch_size = x.shape[0]
 
-        # spatial features and global features
-        s_feat, g_feat = self.feature_extractor(x)
+        # spatial features and global features, 为什么经过池化之后的特征叫 global ?
+        s_feat, g_feat = self.feature_extractor(x) # [b, 2048, 7, 7], [b, 2048]
 
         assert self.N_ITER >= 0 and self.N_ITER <= 3
         if self.N_ITER == 1:
@@ -314,12 +329,10 @@ class PyMAF(nn.Module):
             else:
                 pred_smpl_verts = smpl_output['verts'].detach()
                 # TODO: use a more sparse SMPL implementation (with 431 vertices) for acceleration
-                pred_smpl_verts_ds = torch.matmul(self.maf_extractor[rf_i].Dmap.unsqueeze(0),
-                                                  pred_smpl_verts)  # [B, 431, 3]
+                pred_smpl_verts_ds = torch.matmul(self.maf_extractor[rf_i].Dmap.unsqueeze(0), pred_smpl_verts)  # [B, 431, 3]
                 ref_feature = self.maf_extractor[rf_i](pred_smpl_verts_ds)  # [B, 431 * n_feat]
 
-            smpl_output = self.regressor[rf_i](ref_feature, pred_pose, pred_shape, pred_cam, n_iter=1,
-                                               J_regressor=J_regressor)
+            smpl_output = self.regressor[rf_i](ref_feature, pred_pose, pred_shape, pred_cam, n_iter=1, J_regressor=J_regressor)
             out_list['smpl_out'].append(smpl_output)
 
         if self.AUX_SUPV_ON:

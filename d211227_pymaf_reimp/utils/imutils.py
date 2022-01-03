@@ -150,6 +150,7 @@ def flip_img(img):
 
 def flip_kp(kp, is_smpl=False, SMPL_JOINTS_FLIP_PERM=None, J24_FLIP_PERM=None, SMPL_J49_FLIP_PERM=None, J49_FLIP_PERM=None):
     """Flip keypoints."""
+    # [24, 3], [False] ->
     if len(kp) == 24:
         if is_smpl:
             flipped_parts = SMPL_JOINTS_FLIP_PERM
@@ -160,9 +161,9 @@ def flip_kp(kp, is_smpl=False, SMPL_JOINTS_FLIP_PERM=None, J24_FLIP_PERM=None, S
             flipped_parts = SMPL_J49_FLIP_PERM
         else:
             flipped_parts = J49_FLIP_PERM
-    kp = kp[flipped_parts]
-    kp[:, 0] = - kp[:, 0]
-    return kp
+    newkp = kp[flipped_parts].squeeze(0)
+    newkp[:, 0] = - newkp[:, 0]
+    return newkp
 
 
 def flip_pose(pose, SMPL_POSE_FLIP_PERM):

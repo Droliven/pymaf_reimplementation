@@ -2,7 +2,7 @@
 # encoding: utf-8
 '''
 @project : pymaf_reimp
-@file    : eval_coco_pymaf.py
+@file    : eval_d211227_coco_pymaf.py
 @author  : Levon
 @contact : levondang@163.com
 @ide     : PyCharm
@@ -25,19 +25,20 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-import pprint
+from pprint import pprint
+import platform
 
-from ..datas import COCODataset
-from ..nets import SMPL, PyMAF
-from ..utils.geometry import perspective_projection
-from ..utils.transforms import transform_preds
-from ..utils.uv_vis import vis_smpl_iuv
-from ..cfgs import ConfigPymaf
+from d211227_pymaf_reimp.datas import COCODataset
+from d211227_pymaf_reimp.nets import SMPL, PyMAF
+from d211227_pymaf_reimp.utils.geometry import perspective_projection
+from d211227_pymaf_reimp.utils.transforms import transform_preds
+from d211227_pymaf_reimp.utils.uv_vis import vis_smpl_iuv
+from d211227_pymaf_reimp.cfgs import ConfigPymaf
 
 
 def run_evaluation(model, dataset, result_file,
                    batch_size=32, img_res=224,
-                   num_workers=32, shuffle=False):
+                   num_workers=32, shuffle=False, output_dir=None):
     """Run evaluation on the datasets and metrics we report in the paper. """
     model.eval()
 
@@ -47,8 +48,7 @@ def run_evaluation(model, dataset, result_file,
     model.to(device)
 
     # Load SMPL model
-    smpl_neutral = SMPL(cfg.SMPL_MODEL_DIR,
-                        create_transl=False).to(device)
+    smpl_neutral = SMPL(cfg.JOINT_MAP, cfg.JOINT_NAMES, cfg.J24_TO_J19, cfg.JOINT_REGRESSOR_TRAIN_EXTRA, cfg.SMPL_MODEL_DIR, create_transl=False).to(device)
 
     save_results = result_file is not None
     # Disable shuffling if you want to save the results
@@ -155,15 +155,15 @@ def run_evaluation(model, dataset, result_file,
         if len(args.vis_imname) > 0:
             exit()
 
-        if args.checkpoint is None or 'model_checkpoint.pt' in args.checkpoint:
-            ckp_name = 'spin_model'
-        else:
+        osv = platform.system().lower()
+        if osv == "windows":
+            ckp_name = args.checkpoint.split('\\')
+        elif osv == "linux":
             ckp_name = args.checkpoint.split('/')
-            ckp_name = ckp_name[2].split('_')[1] + '_' + ckp_name[-1].split('.')[0]
+        ckp_name = ckp_name[-1].split('_')[0]
         name_values, perf_indicator = dataset.evaluate(
-            cfg, all_preds, args.output_dir, all_boxes, image_path, ckp_name,
-            filenames, imgnums
-        )
+            all_preds, output_dir, all_boxes, image_path, ckp_name, filenames, imgnums
+        ) # preds, output_dir, all_boxes, img_path, ckp_name
 
         model_name = args.regressor
         if isinstance(name_values, list):
@@ -203,16 +203,17 @@ if __name__ == '__main__':
     # Define command-line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', default='coco', help='Choose evaluation dataset')
-    parser.add_argument('--batch_size', default=32, type=int, help='Batch size for testing')
+    # parser.add_argument('--batch_size', default=32, type=int, help='Batch size for testing')
+    parser.add_argument('--batch_size', default=8, type=int, help='Batch size for testing')
     parser.add_argument('--regressor', type=str, choices=['hmr', 'pymaf_net'], default='pymaf_net',
                         help='Name of the SMPL regressor.')
     parser.add_argument('--result_file', default=None, help='If set, save detections to a .npz file')
-    parser.add_argument('--output_dir', type=str, default='./notebooks/output/', help='output directory.')
     parser.add_argument('--vis_demo', default=False, action='store_true', help='result visualization')
     parser.add_argument('--ratio', default=1, type=int, help='image size ration for visualization')
     parser.add_argument('--vis_imname', type=str, default='', help='image name used for visualization.')
+    parser.add_argument('--is_debug', default=False, type=bool, help='')
 
-    parser.add_argument('--checkpoint', default=r"G:\second_model_report_data\datas\three_dimension_reconstruction\spin_pymaf_data\pretrained_model\PyMAF_model_checkpoint.pt", help='Path to network checkpoint')
+    parser.add_argument('--checkpoint', default=r"H:\datas\three_dimension_reconstruction\spin_pymaf_data\pretrained_model\PyMAF_model_checkpoint.pt", help='Path to network checkpoint')
 
     args = parser.parse_args()
     cfg = ConfigPymaf()
@@ -244,10 +245,41 @@ if __name__ == '__main__':
 
 
     # Setup evaluation dataset
-    dataset = COCODataset(eval_pve=cfg.eval_pve, noise_factor=cfg.noise_factor, rot_factor=cfg.rot_factor, scale_factor=cfg.scale_factor, ds=args.dataset, subset="val2014", ignore_3d=False, use_augmentation=True, is_train=False, DATASET_FOLDERS=cfg.ORIGIN_IMGS_DATASET_FOLDERS, DATASET_FILES=cfg.PREPROCESSED_DATASET_FILES, JOINT_MAP=cfg.JOINT_MAP, JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=cfg.SMPL_MODEL_DIR, IMG_NORM_MEAN=cfg.IMG_NORM_MEAN, IMG_NORM_STD=cfg.IMG_NORM_STD, TRAIN_BATCH_SIZE=cfg.TRAIN_BATCHSIZE, IMG_RES=cfg.IMG_RES, SMPL_JOINTS_FLIP_PERM=cfg.SMPL_JOINTS_FLIP_PERM)
+    dataset = COCODataset(eval_pve=cfg.eval_pve, noise_factor=cfg.noise_factor, rot_factor=cfg.rot_factor, scale_factor=cfg.scale_factor,
+                          ds=args.dataset, subset="val2014", ignore_3d=False, use_augmentation=True, is_train=False, is_debug=args.is_debug, DATASET_FOLDERS=cfg.ORIGIN_IMGS_DATASET_FOLDERS,
+                          DATASET_FILES=cfg.PREPROCESSED_DATASET_FILES, JOINT_MAP=cfg.JOINT_MAP, JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19,
+                          JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=cfg.SMPL_MODEL_DIR, IMG_NORM_MEAN=cfg.IMG_NORM_MEAN,
+                          IMG_NORM_STD=cfg.IMG_NORM_STD, TRAIN_BATCH_SIZE=cfg.TRAIN_BATCHSIZE, IMG_RES=cfg.IMG_RES, SMPL_JOINTS_FLIP_PERM=cfg.SMPL_JOINTS_FLIP_PERM, SMPL_POSE_FLIP_PERM=cfg.SMPL_POSE_FLIP_PERM)
 
     # Run evaluation
     args.result_file = None
-    run_evaluation(model, dataset, args.result_file, batch_size=args.batch_size, shuffle=False, num_workers=cfg.num_works)
+    run_evaluation(model, dataset, args.result_file, batch_size=args.batch_size, shuffle=False, num_workers=cfg.num_works, output_dir=cfg.output_dir)
 
     print('{}: {}, {}'.format(args.regressor, args.checkpoint, args.dataset))
+
+    '''
+    => writing results json to ./results/keypoints_val2014_results_PyMAF.json
+    Loading and preparing results...
+    DONE (t=3.31s)
+    creating index...
+    index created!
+    Running per image evaluation...
+    Evaluate annotation type *keypoints*
+    DONE (t=26.13s).
+    Accumulating evaluation results...
+    DONE (t=0.65s).
+     Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets= 20 ] = 0.246
+     Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets= 20 ] = 0.489
+     Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets= 20 ] = 0.227
+     Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets= 20 ] = 0.260
+     Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets= 20 ] = 0.242
+     Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 20 ] = 0.417
+     Average Recall     (AR) @[ IoU=0.50      | area=   all | maxDets= 20 ] = 0.672
+     Average Recall     (AR) @[ IoU=0.75      | area=   all | maxDets= 20 ] = 0.445
+     Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets= 20 ] = 0.395
+     Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets= 20 ] = 0.447
+    | Arch | AP | Ap .5 | AP .75 | AP (M) | AP (L) | AR | AR .5 | AR .75 | AR (M) | AR (L) |
+    |---|---|---|---|---|---|---|---|---|---|---|
+    | pymaf_net | 0.246 | 0.489 | 0.227 | 0.260 | 0.242 | 0.417 | 0.672 | 0.445 | 0.395 | 0.447 |
+    pymaf_net: H:\datas\three_dimension_reconstruction\spin_pymaf_data\pretrained_model\PyMAF_model_checkpoint.pt, coco
+    '''

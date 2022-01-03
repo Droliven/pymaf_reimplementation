@@ -91,11 +91,11 @@ class RunnerPymaf():
 
         # 数据
         if args.is_single_dataset:
-            self.train_ds = BaseDataset(eval_pve=self.cfg.eval_pve, noise_factor=self.cfg.noise_factor, rot_factor=self.cfg.rot_factor, scale_factor=self.cfg.scale_factor, dataset=self.cfg.single_dataname, ignore_3d=False, use_augmentation=True, is_train=True, DATASET_FOLDERS=self.cfg.ORIGIN_IMGS_DATASET_FOLDERS, DATASET_FILES=self.cfg.PREPROCESSED_DATASET_FILES, JOINT_MAP=self.cfg.JOINT_MAP, JOINT_NAMES=self.cfg.JOINT_NAMES, J24_TO_J19=self.cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=self.cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=self.cfg.SMPL_MODEL_DIR, IMG_NORM_MEAN=self.cfg.IMG_NORM_MEAN, IMG_NORM_STD=self.cfg.IMG_NORM_STD, TRAIN_BATCH_SIZE=self.cfg.TRAIN_BATCHSIZE, IMG_RES=self.cfg.IMG_RES, SMPL_JOINTS_FLIP_PERM=self.cfg.SMPL_JOINTS_FLIP_PERM)
+            self.train_ds = BaseDataset(eval_pve=self.cfg.eval_pve, noise_factor=self.cfg.noise_factor, rot_factor=self.cfg.rot_factor, scale_factor=self.cfg.scale_factor, dataset=self.cfg.single_dataname, ignore_3d=False, use_augmentation=True, is_train=True, is_debug=self.is_debug, DATASET_FOLDERS=self.cfg.ORIGIN_IMGS_DATASET_FOLDERS, DATASET_FILES=self.cfg.PREPROCESSED_DATASET_FILES, JOINT_MAP=self.cfg.JOINT_MAP, JOINT_NAMES=self.cfg.JOINT_NAMES, J24_TO_J19=self.cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=self.cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=self.cfg.SMPL_MODEL_DIR, IMG_NORM_MEAN=self.cfg.IMG_NORM_MEAN, IMG_NORM_STD=self.cfg.IMG_NORM_STD, TRAIN_BATCH_SIZE=self.cfg.TRAIN_BATCHSIZE, IMG_RES=self.cfg.IMG_RES, SMPL_JOINTS_FLIP_PERM=self.cfg.SMPL_JOINTS_FLIP_PERM, SMPL_POSE_FLIP_PERM=self.cfg.SMPL_POSE_FLIP_PERM)
         else:
-            self.train_ds = MixedDataset(eval_pve=self.cfg.eval_pve, noise_factor=self.cfg.noise_factor, rot_factor=self.cfg.rot_factor, scale_factor=self.cfg.scale_factor, ignore_3d=False, use_augmentation=True, is_train=True, DATASET_FOLDERS=self.cfg.ORIGIN_IMGS_DATASET_FOLDERS, DATASET_FILES=self.cfg.PREPROCESSED_DATASET_FILES, JOINT_MAP=self.cfg.JOINT_MAP, JOINT_NAMES=self.cfg.JOINT_NAMES, J24_TO_J19=self.cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=self.cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=self.cfg.SMPL_MODEL_DIR, IMG_NORM_MEAN=self.cfg.IMG_NORM_MEAN, IMG_NORM_STD=self.cfg.IMG_NORM_STD, TRAIN_BATCH_SIZE=self.cfg.TRAIN_BATCHSIZE, IMG_RES=self.cfg.IMG_RES, SMPL_JOINTS_FLIP_PERM=self.cfg.SMPL_JOINTS_FLIP_PERM)
+            self.train_ds = MixedDataset(eval_pve=self.cfg.eval_pve, noise_factor=self.cfg.noise_factor, rot_factor=self.cfg.rot_factor, scale_factor=self.cfg.scale_factor, ignore_3d=False, use_augmentation=True, is_train=True, is_debug=self.is_debug, DATASET_FOLDERS=self.cfg.ORIGIN_IMGS_DATASET_FOLDERS, DATASET_FILES=self.cfg.PREPROCESSED_DATASET_FILES, JOINT_MAP=self.cfg.JOINT_MAP, JOINT_NAMES=self.cfg.JOINT_NAMES, J24_TO_J19=self.cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=self.cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=self.cfg.SMPL_MODEL_DIR, IMG_NORM_MEAN=self.cfg.IMG_NORM_MEAN, IMG_NORM_STD=self.cfg.IMG_NORM_STD, TRAIN_BATCH_SIZE=self.cfg.TRAIN_BATCHSIZE, IMG_RES=self.cfg.IMG_RES, SMPL_JOINTS_FLIP_PERM=self.cfg.SMPL_JOINTS_FLIP_PERM, SMPL_POSE_FLIP_PERM=self.cfg.SMPL_POSE_FLIP_PERM)
 
-        self.valid_ds = BaseDataset(eval_pve=self.cfg.eval_pve, noise_factor=self.cfg.noise_factor, rot_factor=self.cfg.rot_factor, scale_factor=self.cfg.scale_factor, dataset=self.cfg.eval_dataset, ignore_3d=False, use_augmentation=True, is_train=False, DATASET_FOLDERS=self.cfg.ORIGIN_IMGS_DATASET_FOLDERS, DATASET_FILES=self.cfg.PREPROCESSED_DATASET_FILES, JOINT_MAP=self.cfg.JOINT_MAP, JOINT_NAMES=self.cfg.JOINT_NAMES, J24_TO_J19=self.cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=self.cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=self.cfg.SMPL_MODEL_DIR, IMG_NORM_MEAN=self.cfg.IMG_NORM_MEAN, IMG_NORM_STD=self.cfg.IMG_NORM_STD, TRAIN_BATCH_SIZE=self.cfg.TRAIN_BATCHSIZE, IMG_RES=self.cfg.IMG_RES, SMPL_JOINTS_FLIP_PERM=self.cfg.SMPL_JOINTS_FLIP_PERM)
+        self.valid_ds = BaseDataset(eval_pve=self.cfg.eval_pve, noise_factor=self.cfg.noise_factor, rot_factor=self.cfg.rot_factor, scale_factor=self.cfg.scale_factor, dataset=self.cfg.eval_dataset, ignore_3d=False, use_augmentation=True, is_train=False, is_debug=self.is_debug, DATASET_FOLDERS=self.cfg.ORIGIN_IMGS_DATASET_FOLDERS, DATASET_FILES=self.cfg.PREPROCESSED_DATASET_FILES, JOINT_MAP=self.cfg.JOINT_MAP, JOINT_NAMES=self.cfg.JOINT_NAMES, J24_TO_J19=self.cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=self.cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=self.cfg.SMPL_MODEL_DIR, IMG_NORM_MEAN=self.cfg.IMG_NORM_MEAN, IMG_NORM_STD=self.cfg.IMG_NORM_STD, TRAIN_BATCH_SIZE=self.cfg.TRAIN_BATCHSIZE, IMG_RES=self.cfg.IMG_RES, SMPL_JOINTS_FLIP_PERM=self.cfg.SMPL_JOINTS_FLIP_PERM, SMPL_POSE_FLIP_PERM=self.cfg.SMPL_POSE_FLIP_PERM)
 
         self.train_data_loader = DataLoader(
             self.train_ds,
@@ -158,7 +158,6 @@ class RunnerPymaf():
             print(timestamp, 'Epoch:', epoch, 'Iteration:', batch_idx)
             print('Saving checkpoint file [' + checkpoint_filename + ']')
 
-
     def load_checkpoint(self, checkpoint_file=None):
         """Load a checkpoint."""
 
@@ -185,37 +184,39 @@ class RunnerPymaf():
 
         # Iterate over all batches in an epoch
         for step, batch in enumerate(self.train_data_loader, self.checkpoint_batch_idx):
-
+            # ['img', 'pose', 'shape', 'imgname', 'smpl_2dkps', 'pose_3d', 'keypoints', 'has_smpl', 'has_pose_3d', 'scale',
+            # 'center', 'orig_shape', 'is_flipped', 'rot_angle', 'gender', 'sample_index', 'dataset_name', 'maskname', 'partname']
             self.step_count += 1
             batch = {k: v.to(self.cfg.device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
             # >>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<
             # >>>>>>>>>>>>>> train on batch <<<<<<<<<<<<<<<<
             # >>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<
             # Get data from the batch
-            images = batch['img']  # input image
-            gt_keypoints_2d = batch['keypoints']  # 2D keypoints
-            gt_pose = batch['pose']  # SMPL pose parameters
-            gt_betas = batch['betas']  # SMPL beta parameters
-            gt_joints = batch['pose_3d']  # 3D pose
-            has_smpl = batch['has_smpl'].to(torch.bool)  # flag that indicates whether SMPL parameters are valid
-            has_pose_3d = batch['has_pose_3d'].to(torch.bool)  # flag that indicates whether 3D pose is valid
+            images = batch['img']  # input image b, 3, 224, 224
+            gt_keypoints_2d = batch['keypoints']  # 2D keypoints # b, 49, 3
+            gt_pose = batch['pose']  # SMPL pose parameters # b, 72
+            gt_betas = batch['shape']  # SMPL beta parameters # b, 10
+            gt_joints = batch['pose_3d']  # 3D pose # b, 24, 4
+            has_smpl = batch['has_smpl'].to(torch.bool)   # flag that indicates whether SMPL parameters are valid # [b]
+            has_pose_3d = batch['has_pose_3d'].to(torch.bool)  # flag that indicates whether 3D pose is valid # [b]
             is_flipped = batch[
-                'is_flipped']  # flag that indicates whether image was flipped during data augmentation
-            rot_angle = batch['rot_angle']  # rotation angle used for data augmentation
-            dataset_name = batch['dataset_name']  # name of the dataset the image comes from
-            indices = batch['sample_index']  # index of example inside its dataset
+                'is_flipped']  # flag that indicates whether image was flipped during data augmentation # [b]
+            rot_angle = batch['rot_angle']  # rotation angle used for data augmentation [b]
+            dataset_name = batch['dataset_name']  # name of the dataset the image comes from [b]
+            indices = batch['sample_index']  # index of example inside its dataset [b]
             batch_size = images.shape[0]
 
             # Get GT vertices and model joints
             # Note that gt_model_joints is different from gt_joints as it comes from SMPL
+            # todo 弄清楚 这个 SMPL 各种 joint 的意义以及转译过程
             gt_out = self.smpl(betas=gt_betas, body_pose=gt_pose[:, 3:], global_orient=gt_pose[:, :3])
-            gt_model_joints = gt_out.joints
-            gt_vertices = gt_out.vertices
+            gt_model_joints = gt_out.joints # [b, 49, 3]
+            # gt_vertices = gt_out.vertices # [b, 6890, 3]
 
-            # Get current best fits from the dictionary
+            # 对于没有真值的才采用其 OPT 参数，Get current best fits from the dictionary
             opt_pose, opt_betas = self.fits_dict[(dataset_name, indices.cpu(), rot_angle.cpu(), is_flipped.cpu())]
-            opt_pose = opt_pose.to(self.cfg.device)
-            opt_betas = opt_betas.to(self.cfg.device)
+            opt_pose = opt_pose.to(self.cfg.device) # b, 10
+            opt_betas = opt_betas.to(self.cfg.device) # b, 72
 
             # Replace extreme betas with zero betas
             opt_betas[(opt_betas.abs() > 3).any(dim=-1)] = 0.
@@ -224,23 +225,23 @@ class RunnerPymaf():
             opt_betas[has_smpl, :] = gt_betas[has_smpl, :]
 
             opt_output = self.smpl(betas=opt_betas, body_pose=opt_pose[:, 3:], global_orient=opt_pose[:, :3])
-            opt_vertices = opt_output.vertices
-            opt_joints = opt_output.joints
+            opt_vertices = opt_output.vertices # [b, 6890, 3]
+            opt_joints = opt_output.joints # [b, 49, 3]
 
             batch['verts'] = opt_vertices
 
-            # De-normalize 2D keypoints from [-1,1] to pixel space
-            gt_keypoints_2d_orig = gt_keypoints_2d.clone()
+            # De-normalize 2D keypoints from [-1,1] to pixel space, 最后一维是置信度
+            gt_keypoints_2d_orig = gt_keypoints_2d.clone() # [b, 49, 3]
             gt_keypoints_2d_orig[:, :, :-1] = 0.5 * self.cfg.IMG_RES * (gt_keypoints_2d_orig[:, :, :-1] + 1)
 
             # Estimate camera translation given the model joints and 2D keypoints
             # by minimizing a weighted least squares loss
-            gt_cam_t = estimate_translation(gt_model_joints, gt_keypoints_2d_orig, focal_length=self.focal_length, img_size=self.cfg.IMG_RES)
+            # gt_cam_t = estimate_translation(gt_model_joints, gt_keypoints_2d_orig, focal_length=self.focal_length, img_size=self.cfg.IMG_RES)
+            # todo 弄清楚 这个相机参数到底是什么东西
+            opt_cam_t = estimate_translation(opt_joints, gt_keypoints_2d_orig, focal_length=self.focal_length, img_size=self.cfg.IMG_RES) # [b, 3]
 
-            opt_cam_t = estimate_translation(opt_joints, gt_keypoints_2d_orig, focal_length=self.focal_length, img_size=self.cfg.IMG_RES)
-
-            # get fitted smpl parameters as pseudo ground truth
-            valid_fit = self.fits_dict.get_vaild_state(dataset_name, indices.cpu()).to(torch.bool).to(self.cfg.device)
+            # get fitted smpl parameters as pseudo ground truth, todo 这玩意儿代表啥
+            valid_fit = self.fits_dict.get_vaild_state(dataset_name, indices.cpu()).to(torch.bool).to(self.cfg.device) # [b]
 
             try:
                 valid_fit = valid_fit | has_smpl
@@ -254,16 +255,19 @@ class RunnerPymaf():
                 gt_camera[:, 1:] = gt_cam_t_nr[:, :2]
                 gt_camera[:, 0] = (2. * self.focal_length / self.cfg.IMG_RES) / gt_cam_t_nr[:, 2]
                 iuv_image_gt = torch.zeros(
-                    (batch_size, 3, self.cfg.pymaf_model['DP_HEATMAP_SIZE'], self.cfg.pymaf_model['DP_HEATMAP_SIZE'])).to(self.cfg.device)
+                    (batch_size, 3, self.cfg.pymaf_model['DP_HEATMAP_SIZE'], self.cfg.pymaf_model['DP_HEATMAP_SIZE'])).to(self.cfg.device) # [b, 3, 56, 56]
                 if torch.sum(valid_fit.float()) > 0:
                     iuv_image_gt[valid_fit] = self.iuv_maker.verts2iuvimg(opt_vertices[valid_fit], cam=gt_camera[valid_fit])  # [B, 3, 56, 56]
-                batch['iuv_image_gt'] = iuv_image_gt
-
-                uvia_list = iuv_img2map(iuv_image_gt)
+                batch['iuv_image_gt'] = iuv_image_gt # # [b, 3, 56, 56]
+                # todo iuv_img2map 是什么
+                uvia_list = iuv_img2map(iuv_image_gt) # [b, 25, 56, 56] * 4
 
             # Feed images in the network to predict camera and SMPL parameters
+            # todo 弄清楚这些点数之间的关系，一会儿 24, 一会儿 49
             preds_dict, _ = self.model(images)
-
+            # {"smpl_out": {'theta': [b, 85], 'verts': [b, 6890, 3], 'kp_2d': [b, 49, 2], 'kp_3d': [b, 49, 3], 'smpl_kp_3d': [b, 24, 3], 'rotmat': [b, 24, 3, 3], 'pred_cam': [b, 3], 'pred_shape': [b, 10], 'pred_pose': [b, 144]} * 4,
+            #  "dp_out": {'predict_uv_index': [b, 25, 56, 56], 'predict_ann_index': [b, 15, 56, 56], 'predict_u': [b, 25, 56, 56], 'predict_v': [b, 25, 56, 56]} * 1}
+            # [b, 2048, 7, 7], [b, 256, 14, 14], [b, 256, 28, 28], [b, 256, 56, 56]
             output = preds_dict
             loss_dict = {}
 
@@ -323,7 +327,7 @@ class RunnerPymaf():
                 pred_keypoints_2d = pred_keypoints_2d / (self.cfg.IMG_RES / 2.)
 
                 # Compute loss on SMPL parameters
-                loss_regr_pose, loss_regr_betas = smpl_losses(pred_rotmat, pred_betas, opt_pose, opt_betas, valid_fit)
+                loss_regr_pose, loss_regr_betas = smpl_losses(self.criterion_regr, pred_rotmat, pred_betas, opt_pose, opt_betas, valid_fit)
                 loss_regr_pose *= self.cfg.LOSS['POSE_W']
                 loss_regr_betas *= self.cfg.LOSS['SHAPE_W']
                 loss_dict['loss_regr_pose_{}'.format(l_i)] = loss_regr_pose
@@ -331,18 +335,18 @@ class RunnerPymaf():
 
                 # Compute 2D reprojection loss for the keypoints
                 if self.cfg.LOSS['KP_2D_W'] > 0:
-                    loss_keypoints = keypoint_loss(pred_keypoints_2d, gt_keypoints_2d,
+                    loss_keypoints = keypoint_loss(self.criterion_keypoints, pred_keypoints_2d, gt_keypoints_2d,
                                                         self.cfg.openpose_train_weight,
                                                         self.cfg.gt_train_weight) * self.cfg.LOSS['KP_2D_W']
                     loss_dict['loss_keypoints_{}'.format(l_i)] = loss_keypoints
 
                 # Compute 3D keypoint loss
-                loss_keypoints_3d = keypoint_3d_loss(pred_joints, gt_joints, has_pose_3d) * self.cfg.LOSS['KP_3D_W']
+                loss_keypoints_3d = keypoint_3d_loss(self.criterion_keypoints, pred_joints, gt_joints, has_pose_3d) * self.cfg.LOSS['KP_3D_W']
                 loss_dict['loss_keypoints_3d_{}'.format(l_i)] = loss_keypoints_3d
 
                 # Per-vertex loss for the shape
                 if self.cfg.LOSS['VERT_W'] > 0:
-                    loss_shape = shape_loss(pred_vertices, opt_vertices, valid_fit) * self.cfg.LOSS['VERT_W']
+                    loss_shape = shape_loss(self.criterion_shape, pred_vertices, opt_vertices, valid_fit) * self.cfg.LOSS['VERT_W']
                     loss_dict['loss_shape_{}'.format(l_i)] = loss_shape
 
                 # Camera
@@ -438,7 +442,6 @@ class RunnerPymaf():
 
         return pa_mpjpe
 
-
     def validate(self):
         with torch.no_grad():
             self.model.eval()
@@ -456,7 +459,7 @@ class RunnerPymaf():
 
             for i, target in enumerate(self.valid_loader):
                 # Get GT vertices and model joints
-                gt_betas = target['betas'].to(self.cfg.device)
+                gt_betas = target['shape'].to(self.cfg.device)
                 gt_pose = target['pose'].to(self.cfg.device)
                 gt_out = self.smpl(betas=gt_betas, body_pose=gt_pose[:, 3:], global_orient=gt_pose[:, :3])
                 gt_model_joints = gt_out.joints
@@ -484,7 +487,7 @@ class RunnerPymaf():
                     pred_verts = preds['verts'].cpu().numpy()
                     target_verts = target['verts'].numpy()
 
-                    batch_len = target['betas'].shape[0]
+                    batch_len = target['shape'].shape[0]
 
                     self.evaluation_accumulators['pred_verts'].append(pred_verts)
                     self.evaluation_accumulators['target_verts'].append(target_verts)
@@ -569,7 +572,6 @@ class RunnerPymaf():
                 self.summary.add_image('{}/mesh_pred'.format(stage), vis_img_full, it)
             else:
                 self.summary.add_image('{}/mesh_pred_{}'.format(stage, it), vis_img_full, self.epoch_count)
-
 
 
     def run(self):
