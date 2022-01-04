@@ -13,8 +13,10 @@ import getpass
 import os
 
 class ConfigPymaf():
-    def __init__(self, exp_name=""):
+    def __init__(self, exp_name="", is_debug=False):
         self.exp_name = exp_name
+        self.is_debug = is_debug
+
         self.platform = getpass.getuser()
 
         self.device = "cuda:0"
@@ -22,8 +24,14 @@ class ConfigPymaf():
         self.openpose_train_weight=0. # 'Weight for OpenPose keypoints during training')
         self.gt_train_weight=1. # 'Weight for GT keypoints during training')
 
-        self.VAL_VIS_BATCH_FREQ = 200
-        self.TRAIN_VIS_ITER_FERQ = 1000
+
+        if self.is_debug:
+            self.VAL_VIS_BATCH_FREQ = 50
+            self.TRAIN_VIS_ITER_FERQ = 50
+        else:
+            self.VAL_VIS_BATCH_FREQ = 200
+            self.TRAIN_VIS_ITER_FERQ = 1000
+
         self.TRAIN_VAL_LOOP = True
         # self.TRAIN_BATCHSIZE = 64
         self.TRAIN_BATCHSIZE = 16
@@ -273,6 +281,7 @@ class ConfigPymaf():
 
         # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> train options <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         self.single_dataname = "h36m"
+        # self.single_dataname = "lsp_orig"
         self.eval_dataset = "h36m_p2_mosh"
         self.eval_pve = False
         self.noise_factor = 0.4

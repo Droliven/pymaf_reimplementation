@@ -299,8 +299,8 @@ def perspective_projection(points, rotation, translation,
 def estimate_translation_np(S, joints_2d, joints_conf, focal_length=5000, img_size=224):
     """Find camera translation that brings 3D joints S closest to 2D the corresponding joints_2d.
     Input:
-        S: (25, 3) 3D joint locations
-        joints: (25, 3) 2D joint locations and confidence
+        S: (24, 3) 3D joint locations
+        joints: (24, 2) 2D joint locations and confidence
     Returns:
         (3,) camera translation vector
     """
@@ -312,10 +312,10 @@ def estimate_translation_np(S, joints_2d, joints_conf, focal_length=5000, img_si
     center = np.array([img_size / 2., img_size / 2.])
 
     # transformations
-    Z = np.reshape(np.tile(S[:, 2], (2, 1)).T, -1)
-    XY = np.reshape(S[:, 0:2], -1)
-    O = np.tile(center, num_joints)
-    F = np.tile(f, num_joints)
+    Z = np.reshape(np.tile(S[:, 2], (2, 1)).T, -1) # 48
+    XY = np.reshape(S[:, 0:2], -1) # [48]
+    O = np.tile(center, num_joints) # [48]
+    F = np.tile(f, num_joints) # [48]
     weight2 = np.reshape(np.tile(np.sqrt(joints_conf), (2, 1)).T, -1)
 
     # least squares
@@ -349,16 +349,16 @@ def estimate_translation(S, joints_2d, focal_length=5000., img_size=224.):
 
     device = S.device
     # Use only joints 25:49 (GT joints)
-    S = S[:, 25:, :].cpu().numpy()
-    joints_2d = joints_2d[:, 25:, :].cpu().numpy()
-    joints_conf = joints_2d[:, :, -1]
-    joints_2d = joints_2d[:, :, :-1]
-    trans = np.zeros((S.shape[0], 3), dtype=np.float32)
+    S = S[:, 25:, :].cpu().numpy() # [b, 24, 3]
+    joints_2d = joints_2d[:, 25:, :].cpu().numpy() # [b, 24, 3]
+    joints_conf = joints_2d[:, :, -1] # [b, 24]
+    joints_2d = joints_2d[:, :, :-1] # [b, 24, 2]
+    trans = np.zeros((S.shape[0], 3), dtype=np.float32) # b, 3
     # Find the translation for each example in the batch
     for i in range(S.shape[0]):
-        S_i = S[i]
-        joints_i = joints_2d[i]
-        conf_i = joints_conf[i]
+        S_i = S[i] # [24, 3]
+        joints_i = joints_2d[i] # [24, 3]
+        conf_i = joints_conf[i] # [24]
         trans[i] = estimate_translation_np(S_i, joints_i, conf_i, focal_length=focal_length, img_size=img_size)
     return torch.from_numpy(trans).to(device)
 

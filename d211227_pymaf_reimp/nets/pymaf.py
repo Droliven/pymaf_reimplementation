@@ -16,152 +16,7 @@ from .smpl import SMPL
 from .backbone_resnet import BackboneResNet
 from .maf_extractor import MAF_Extractor
 from .res_module import IUV_predict_layer
-from ..utils.geometry import rot6d_to_rotmat, projection, rotation_matrix_to_angle_axis
-
-
-class Regressor(nn.Module):
-    def __init__(self, feat_dim, smpl_mean_params, SMPL_MODEL_DIR, H36M_TO_J14, JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA):
-        super(Regressor, self).__init__()
-
-        self.H36M_TO_J14 = H36M_TO_J14
-
-        npose = 24 * 6
-
-        self.fc1 = nn.Linear(feat_dim + npose + 13, 1024)
-        self.drop1 = nn.Dropout()
-        self.fc2 = nn.Linear(1024, 1024)
-        self.drop2 = nn.Dropout()
-        self.decpose = nn.Linear(1024, npose)
-        self.decshape = nn.Linear(1024, 10)
-        self.deccam = nn.Linear(1024, 3)
-        nn.init.xavier_uniform_(self.decpose.weight, gain=0.01)
-        nn.init.xavier_uniform_(self.decshape.weight, gain=0.01)
-        nn.init.xavier_uniform_(self.deccam.weight, gain=0.01)
-
-        self.smpl = SMPL(JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR, batch_size=64, create_transl=False)
-
-        mean_params = np.load(smpl_mean_params)
-        init_pose = torch.from_numpy(mean_params['pose'][:]).unsqueeze(0)
-        init_shape = torch.from_numpy(mean_params['shape'][:].astype('float32')).unsqueeze(0)
-        init_cam = torch.from_numpy(mean_params['cam']).unsqueeze(0)
-        self.register_buffer('init_pose', init_pose)
-        self.register_buffer('init_shape', init_shape)
-        self.register_buffer('init_cam', init_cam)
-
-    def forward(self, x, init_pose=None, init_shape=None, init_cam=None, n_iter=1, J_regressor=None):
-        batch_size = x.shape[0]
-
-        if init_pose is None:
-            init_pose = self.init_pose.expand(batch_size, -1)
-        if init_shape is None:
-            init_shape = self.init_shape.expand(batch_size, -1)
-        if init_cam is None:
-            init_cam = self.init_cam.expand(batch_size, -1)
-
-        pred_pose = init_pose
-        pred_shape = init_shape
-        pred_cam = init_cam
-        for i in range(n_iter):
-            xc = torch.cat([x, pred_pose, pred_shape, pred_cam], 1)
-            xc = self.fc1(xc)
-            xc = self.drop1(xc)
-            xc = self.fc2(xc)
-            xc = self.drop2(xc)
-            pred_pose = self.decpose(xc) + pred_pose
-            pred_shape = self.decshape(xc) + pred_shape
-            pred_cam = self.deccam(xc) + pred_cam
-
-        pred_rotmat = rot6d_to_rotmat(pred_pose).view(batch_size, 24, 3, 3)
-
-        pred_output = self.smpl(
-            betas=pred_shape,
-            body_pose=pred_rotmat[:, 1:],
-            global_orient=pred_rotmat[:, 0].unsqueeze(1),
-            pose2rot=False
-        )
-
-        pred_vertices = pred_output.vertices
-        pred_joints = pred_output.joints
-        pred_smpl_joints = pred_output.smpl_joints
-        pred_keypoints_2d = projection(pred_joints, pred_cam)
-        pose = rotation_matrix_to_angle_axis(pred_rotmat.reshape(-1, 3, 3)).reshape(-1, 72)
-
-        if J_regressor is not None:
-            pred_joints = torch.matmul(J_regressor, pred_vertices)
-            pred_pelvis = pred_joints[:, [0], :].clone()
-            pred_joints = pred_joints[:, self.H36M_TO_J14, :]
-            pred_joints = pred_joints - pred_pelvis
-
-        output = {
-            'theta'  : torch.cat([pred_cam, pred_shape, pose], dim=1),
-            'verts'  : pred_vertices,
-            'kp_2d'  : pred_keypoints_2d,
-            'kp_3d'  : pred_joints,
-            'smpl_kp_3d' : pred_smpl_joints,
-            'rotmat' : pred_rotmat,
-            'pred_cam': pred_cam,
-            'pred_shape': pred_shape,
-            'pred_pose': pred_pose,
-        }
-        return output
-
-    def forward_init(self, x, init_pose=None, init_shape=None, init_cam=None, n_iter=1, J_regressor=None):
-        # [b, 2048]
-        batch_size = x.shape[0]
-        # todo 为什么这里 init_pose 是 144, 因为用的是 rot6d 表示法
-        if init_pose is None:
-            init_pose = self.init_pose.expand(batch_size, -1) # [1, 144] -> [b, 144]
-        if init_shape is None:
-            init_shape = self.init_shape.expand(batch_size, -1) # [1, 10] -> [b, 10]
-        if init_cam is None:
-            init_cam = self.init_cam.expand(batch_size, -1) # [1, 3] -> [b, 3]
-
-        pred_pose = init_pose
-        pred_shape = init_shape
-        pred_cam = init_cam
-
-        pred_rotmat = rot6d_to_rotmat(pred_pose.contiguous()).view(batch_size, 24, 3, 3)
-
-        pred_output = self.smpl(
-            betas=pred_shape,
-            body_pose=pred_rotmat[:, 1:],
-            global_orient=pred_rotmat[:, 0].unsqueeze(1),
-            pose2rot=False
-        )
-        # {vertices = vertices,  # [b, 6890, 3]
-        # global_orient = smpl_output.global_orient,  # [b, 1, 3, 3]
-        # body_pose = smpl_output.body_pose,  # [b, 23, 3, 3]
-        # joints = joints,  # [b, 49, 3]
-        # joints_J19 = joints_J19,  # [b, 19, 3]
-        # smpl_joints = smpl_joints,  # [b, 24, 3]
-        # betas = smpl_output.betas,  # [b, 10]
-        # full_pose = smpl_output.full_pose)}  # NONE
-
-        pred_vertices = pred_output.vertices
-        pred_joints = pred_output.joints
-        pred_smpl_joints = pred_output.smpl_joints
-        pred_keypoints_2d = projection(pred_joints, pred_cam)
-        pose = rotation_matrix_to_angle_axis(pred_rotmat.reshape(-1, 3, 3)).reshape(-1, 72)
-
-        if J_regressor is not None:
-            pred_joints = torch.matmul(J_regressor, pred_vertices)
-            pred_pelvis = pred_joints[:, [0], :].clone()
-            pred_joints = pred_joints[:, self.H36M_TO_J14, :]
-            pred_joints = pred_joints - pred_pelvis
-
-        output = {
-            'theta'  : torch.cat([pred_cam, pred_shape, pose], dim=1),
-            'verts'  : pred_vertices,
-            'kp_2d'  : pred_keypoints_2d,
-            'kp_3d'  : pred_joints,
-            'smpl_kp_3d' : pred_smpl_joints,
-            'rotmat' : pred_rotmat,
-            'pred_cam': pred_cam,
-            'pred_shape': pred_shape,
-            'pred_pose': pred_pose,
-        }
-        return output
-
+from .regressor import Regressor
 
 class PyMAF(nn.Module):
     """ PyMAF based Deep Regressor for Human Mesh Recovery
@@ -299,6 +154,17 @@ class PyMAF(nn.Module):
         # TODO: remove the initial mesh generation during forward to reduce runtime
         # by generating initial mesh the beforehand: smpl_output = self.init_smpl
         smpl_output = self.regressor[0].forward_init(g_feat, J_regressor=J_regressor)
+        # smpl_output = {
+        #             'theta'  : [b, 85],
+        #             'verts'  : [b, 6890, 3],
+        #             'kp_2d'  : [b, 49, 2],
+        #             'kp_3d'  : [b, 49, 3]
+        #             'smpl_kp_3d' : [b, 24, 3]
+        #             'rotmat' : [b, 24, 3, 3],
+        #             'pred_cam': [b, 3],
+        #             'pred_shape': [b, 10],
+        #             'pred_pose': [b, 144],
+        #         }
 
         out_list['smpl_out'] = [smpl_output]
         out_list['dp_out'] = []
@@ -308,9 +174,9 @@ class PyMAF(nn.Module):
 
         # parameter predictions
         for rf_i in range(self.N_ITER):
-            pred_cam = smpl_output['pred_cam']
-            pred_shape = smpl_output['pred_shape']
-            pred_pose = smpl_output['pred_pose']
+            pred_cam = smpl_output['pred_cam'] # [b, 3]
+            pred_shape = smpl_output['pred_shape'] # [b, 10]
+            pred_pose = smpl_output['pred_pose'] # [b, 144]
 
             pred_cam = pred_cam.detach()
             pred_shape = pred_shape.detach()
@@ -324,13 +190,13 @@ class PyMAF(nn.Module):
             self.maf_extractor[rf_i].cam = pred_cam
 
             if rf_i == 0:
-                sample_points = torch.transpose(self.points_grid.expand(batch_size, -1, -1), 1, 2)
-                ref_feature = self.maf_extractor[rf_i].sampling(sample_points)
+                sample_points = torch.transpose(self.points_grid.expand(batch_size, -1, -1), 1, 2) # [b, 441, 2]
+                ref_feature = self.maf_extractor[rf_i].sampling(sample_points)  # [b, 2205]
             else:
                 pred_smpl_verts = smpl_output['verts'].detach()
                 # TODO: use a more sparse SMPL implementation (with 431 vertices) for acceleration
                 pred_smpl_verts_ds = torch.matmul(self.maf_extractor[rf_i].Dmap.unsqueeze(0), pred_smpl_verts)  # [B, 431, 3]
-                ref_feature = self.maf_extractor[rf_i](pred_smpl_verts_ds)  # [B, 431 * n_feat]
+                ref_feature = self.maf_extractor[rf_i](pred_smpl_verts_ds)  # [B, 431 * n_feat] [b, 2155]
 
             smpl_output = self.regressor[rf_i](ref_feature, pred_pose, pred_shape, pred_cam, n_iter=1, J_regressor=J_regressor)
             out_list['smpl_out'].append(smpl_output)

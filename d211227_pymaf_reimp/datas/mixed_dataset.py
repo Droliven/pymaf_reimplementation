@@ -19,10 +19,18 @@ from .base_dataset import BaseDataset
 
 class MixedDataset(torch.utils.data.Dataset):
     def __init__(self, eval_pve, noise_factor, rot_factor, scale_factor, ignore_3d, use_augmentation, is_train, is_debug, DATASET_FOLDERS, DATASET_FILES, JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR, IMG_NORM_MEAN, IMG_NORM_STD, TRAIN_BATCH_SIZE, IMG_RES, SMPL_JOINTS_FLIP_PERM, SMPL_POSE_FLIP_PERM):
+        # super(MixedDataset, self).__init__()
+
         self.dataset_list = ['h36m', 'lsp_orig', 'mpii', 'lspet', 'coco', 'mpi_inf_3dhp']
         self.dataset_dict = {'h36m': 0, 'lsp_orig': 1, 'mpii': 2, 'lspet': 3, 'coco': 4, 'mpi_inf_3dhp': 5}
 
-        self.datasets = [BaseDataset(eval_pve, noise_factor, rot_factor, scale_factor, ds, ignore_3d, use_augmentation, is_train, is_debug, DATASET_FOLDERS, DATASET_FILES, JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR, IMG_NORM_MEAN, IMG_NORM_STD, TRAIN_BATCH_SIZE, IMG_RES, SMPL_JOINTS_FLIP_PERM, SMPL_POSE_FLIP_PERM) for ds in self.dataset_list]
+        self.datasets = []
+
+        for ds in self.dataset_list:
+            self.datasets.append(BaseDataset(eval_pve, noise_factor, rot_factor, scale_factor, ds, ignore_3d, use_augmentation,
+                                     is_train, is_debug, DATASET_FOLDERS, DATASET_FILES, JOINT_MAP, JOINT_NAMES, J24_TO_J19,
+                                     JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR, IMG_NORM_MEAN, IMG_NORM_STD, TRAIN_BATCH_SIZE,
+                                     IMG_RES, SMPL_JOINTS_FLIP_PERM, SMPL_POSE_FLIP_PERM))
         self.dataset_length = {self.dataset_list[idx]: len(ds) for idx, ds in enumerate(self.datasets)}
         length_itw = sum([len(ds) for ds in self.datasets[1:-1]])
         self.length = max([len(ds) for ds in self.datasets]) # 为什么设定一个最大长度

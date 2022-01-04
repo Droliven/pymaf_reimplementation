@@ -56,22 +56,20 @@ class MAF_Extractor(nn.Module):
         # from https://github.com/nkolot/GraphCMR/blob/master/data/mesh_downsampling.npz
         smpl_mesh_graph = np.load(osp.join(data_dir, 'mesh_downsampling.npz'), allow_pickle=True, encoding='latin1')
 
-        A = smpl_mesh_graph['A']
-        U = smpl_mesh_graph['U']
         D = smpl_mesh_graph['D']  # shape: (2,)
 
         # downsampling
-        ptD = []
+        ptD = [] # [1723, 6890], [431, 1723]
         for i in range(len(D)):
-            d = scipy.sparse.coo_matrix(D[i])
-            i = torch.LongTensor(np.array([d.row, d.col]))
-            v = torch.FloatTensor(d.data)
+            d = scipy.sparse.coo_matrix(D[i]) # [1723, 6890]
+            i = torch.LongTensor(np.array([d.row, d.col])) # [2, 431]
+            v = torch.FloatTensor(d.data) # [431]
             ptD.append(torch.sparse.FloatTensor(i, v, d.shape))
 
         # downsampling mapping from 6890 points to 431 points
         # ptD[0].to_dense() - Size: [1723, 6890]
         # ptD[1].to_dense() - Size: [431. 1723]
-        Dmap = torch.matmul(ptD[1].to_dense(), ptD[0].to_dense())  # 6890 -> 431
+        Dmap = torch.matmul(ptD[1].to_dense(), ptD[0].to_dense())  # [431, 6890]
         self.register_buffer('Dmap', Dmap)
 
     def reduce_dim(self, feature):
@@ -80,7 +78,7 @@ class MAF_Extractor(nn.Module):
         :param feature: list of [B, C_s, N] point-wise features before dimension reduction
         :return: [B, C_p x N] concatantion of point-wise features after dimension reduction
         '''
-        y = feature
+        y = feature # [b, 256, 441]
         tmpy = feature
         for i, f in enumerate(self.filters):
             y = self._modules['conv' + str(i)](
@@ -99,15 +97,15 @@ class MAF_Extractor(nn.Module):
 
         y = self.last_op(y)
 
-        y = y.view(y.shape[0], -1)
+        y = y.view(y.shape[0], -1) # [b, 2205]
         return y
 
-    def sampling(self, points, im_feat=None, z_feat=None):
+    def sampling(self, points, im_feat=None):
         '''
         Given 2D points, sample the point-wise features for each point,
         the dimension of point-wise features will be reduced from C_s to C_p by MLP.
         Image features should be pre-computed before this call.
-        :param points: [B, N, 2] image coordinates of points
+        :param points: [B, N, 2] image coordinates of points # [b, 441, 2]
         :im_feat: [B, C_s, H_s, W_s] spatial feature maps
         :return: [B, C_p x N] concatantion of point-wise features after dimension reduction
         '''
@@ -118,7 +116,7 @@ class MAF_Extractor(nn.Module):
 
         if version.parse(torch.__version__) >= version.parse('1.3.0'):
             # Default grid_sample behavior has changed to align_corners=False since 1.3.0.
-            point_feat = torch.nn.functional.grid_sample(im_feat, points.unsqueeze(2), align_corners=True)[..., 0]
+            point_feat = torch.nn.functional.grid_sample(im_feat, points.unsqueeze(2), align_corners=True)[..., 0] # [b, 256, 441]
         else:
             point_feat = torch.nn.functional.grid_sample(im_feat, points.unsqueeze(2))[..., 0]
 

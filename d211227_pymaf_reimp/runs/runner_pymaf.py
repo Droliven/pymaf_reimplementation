@@ -11,11 +11,11 @@
 from ..datas import MixedDataset, BaseDataset
 from ..nets import PyMAF
 from ..cfgs import ConfigPymaf
-from .losses import smpl_losses, body_uv_losses, shape_loss, keypoint_loss, keypoint_3d_loss
+from .losses import smpl_losses, body_uv_losses, vertices_loss, keypoint_loss, keypoint_3d_loss
 from .fits_dit import FitsDict
 from ..utils.geometry import batch_rodrigues, perspective_projection, estimate_translation
 from ..utils.iuvmap import iuv_img2map, iuv_map2img
-from ..utils.renderer import OpenDRenderer, IUV_Renderer
+from ..utils.renderer import OpenDRenderer, IUV_Renderer, PyRenderer
 from ..utils.pose_utils import compute_similarity_transform_batch
 
 import numpy as np
@@ -50,7 +50,7 @@ class RunnerPymaf():
         self.best_performance = float('inf')
         self.checkpoint_batch_idx = 0
 
-        self.cfg = ConfigPymaf(exp_name=exp_name)
+        self.cfg = ConfigPymaf(exp_name=exp_name, is_debug=is_debug)
 
         print("\n================== Configs =================")
         pprint(vars(self.cfg), indent=4)
@@ -101,7 +101,7 @@ class RunnerPymaf():
             self.train_ds,
             batch_size=self.cfg.TRAIN_BATCHSIZE,
             num_workers=self.cfg.num_works,
-            pin_memory=True,
+            # pin_memory=True,
             shuffle=True,
         )
 
@@ -110,22 +110,27 @@ class RunnerPymaf():
             batch_size=self.cfg.TEST_BATCHSIZE,
             shuffle=False,
             num_workers=self.cfg.num_works,
-            pin_memory=True,
+            # pin_memory=True,
         )
 
         # Load dictionary of fits
-        self.fits_dict = FitsDict(is_single_dataset=args.is_single_dataset, output_dir=self.cfg.output_dir, train_dataset=self.train_ds, SMPL_POSE_FLIP_PERM=self.cfg.SMPL_POSE_FLIP_PERM, FINAL_FITS_DIR=self.cfg.FINAL_FITS_DIR)
+        self.fits_dict = FitsDict(is_single_dataset=args.is_single_dataset, output_dir=self.cfg.output_dir, train_dataset=self.train_ds, is_debug=self.is_debug, SMPL_POSE_FLIP_PERM=self.cfg.SMPL_POSE_FLIP_PERM, FINAL_FITS_DIR=self.cfg.FINAL_FITS_DIR)
         self.evaluation_accumulators = dict.fromkeys(['pred_j3d', 'target_j3d', 'target_theta', 'pred_verts', 'target_verts'])
 
         # Create renderer
         try:
-            self.renderer = OpenDRenderer()
+            # self.renderer = OpenDRenderer()
+            self.renderer = PyRenderer(JOINT_MAP=self.cfg.JOINT_MAP, JOINT_NAMES=self.cfg.JOINT_NAMES, J24_TO_J19=self.cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=self.cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=self.cfg.SMPL_MODEL_DIR)
         except:
             print('No renderer for visualization.')
             self.renderer = None
 
         if self.cfg.pymaf_model['AUX_SUPV_ON']:
-            self.iuv_maker = IUV_Renderer(output_size=self.cfg.pymaf_model['DP_HEATMAP_SIZE'], UV_data_path=self.cfg.UV_data_path)
+            try:
+                self.iuv_maker = IUV_Renderer(output_size=self.cfg.pymaf_model['DP_HEATMAP_SIZE'], UV_data_path=self.cfg.UV_data_path)
+            except:
+                print('No IUV_Renderer.')
+                self.iuv_maker = None
 
 
     def finalize(self):
@@ -193,7 +198,7 @@ class RunnerPymaf():
             # >>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<
             # Get data from the batch
             images = batch['img']  # input image b, 3, 224, 224
-            gt_keypoints_2d = batch['keypoints']  # 2D keypoints # b, 49, 3
+            gt_keypoints_2d = batch['keypoints']  # 2D keypoints # b, 49, 3 即 [24+25, 3] 前半部分是 part, 后半部分是 openpose
             gt_pose = batch['pose']  # SMPL pose parameters # b, 72
             gt_betas = batch['shape']  # SMPL beta parameters # b, 10
             gt_joints = batch['pose_3d']  # 3D pose # b, 24, 4
@@ -306,7 +311,7 @@ class RunnerPymaf():
 
                 pred_output = self.smpl(betas=pred_betas, body_pose=pred_rotmat[:, 1:],
                                         global_orient=pred_rotmat[:, 0].unsqueeze(1), pose2rot=False)
-                pred_vertices = pred_output.vertices
+                pred_vertices = pred_output.vertices # todo 这里为什么又去构造一次，而不直接去用输出的 vertices
                 pred_joints = pred_output.joints
 
                 # Convert Weak Perspective Camera [s, tx, ty] to camera translation [tx, ty, tz] in 3D given the bounding box size
@@ -346,8 +351,8 @@ class RunnerPymaf():
 
                 # Per-vertex loss for the shape
                 if self.cfg.LOSS['VERT_W'] > 0:
-                    loss_shape = shape_loss(self.criterion_shape, pred_vertices, opt_vertices, valid_fit) * self.cfg.LOSS['VERT_W']
-                    loss_dict['loss_shape_{}'.format(l_i)] = loss_shape
+                    loss_shape = vertices_loss(self.criterion_shape, pred_vertices, opt_vertices, valid_fit) * self.cfg.LOSS['VERT_W']
+                    loss_dict['loss_vertices_{}'.format(l_i)] = loss_shape
 
                 # Camera
                 # force the network to predict positive depth values
@@ -428,7 +433,7 @@ class RunnerPymaf():
                 'pve': pve,
             }
 
-            loop_id -= step  # to ensure the index of latest prediction is always -1
+            loop_id -= step  # to ensure the index of latest prediction is always -1, todo 目标是为了什么？
             log_str = f'Epoch {self.epoch_count}, step {loop_id}  '
             log_str += ' '.join([f'{k.upper()}: {v:.4f},' for k, v in eval_dict.items()])
             print(log_str)
@@ -529,12 +534,19 @@ class RunnerPymaf():
 
                 render_imgs.append(img_vis)
 
+                # render_imgs.append(self.renderer(
+                #     smpl_verts,
+                #     self.smpl.faces,
+                #     image=img_vis,
+                #     cam=cam_t,
+                #     addlight=True
+                # ))
+
                 render_imgs.append(self.renderer(
                     smpl_verts,
-                    self.smpl.faces,
-                    image=img_vis,
+                    img=img_vis,
                     cam=cam_t,
-                    addlight=True
+                    color_type='sky',
                 ))
 
                 if self.cfg.pymaf_model['AUX_SUPV_ON']:
@@ -553,12 +565,19 @@ class RunnerPymaf():
                     render_imgs.append(iuv_image_pred_resized.astype(np.uint8))
 
                 if smpl_verts_pred is not None:
+                    # render_imgs.append(self.renderer(
+                    #     smpl_verts_pred,
+                    #     self.smpl.faces,
+                    #     image=img_vis,
+                    #     cam=cam_t,
+                    #     addlight=True
+                    # ))
+
                     render_imgs.append(self.renderer(
                         smpl_verts_pred,
-                        self.smpl.faces,
-                        image=img_vis,
+                        img=img_vis,
                         cam=cam_t,
-                        addlight=True
+                        color_type='sky',
                     ))
 
                 img = np.concatenate(render_imgs, axis=1)
@@ -575,7 +594,8 @@ class RunnerPymaf():
 
 
     def run(self):
-        for epoch in tqdm(range(self.epoch_count, self.cfg.epoch_num), total=self.cfg.epoch_num, initial=self.epoch_count):
+        # for epoch in tqdm(range(self.epoch_count, self.cfg.epoch_num), total=self.cfg.epoch_num, initial=self.epoch_count):
+        for epoch in range(self.epoch_count, self.cfg.epoch_num):
             self.epoch_count = epoch
             self.train(epoch)
 

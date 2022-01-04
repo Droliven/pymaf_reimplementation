@@ -60,8 +60,8 @@ class SMPL(_SMPL):
                                   full_pose=smpl_output.full_pose) # NONE
         return output
 
-def get_smpl_faces(SMPL_MODEL_DIR):
-    smpl = SMPL(SMPL_MODEL_DIR, batch_size=1, create_transl=False)
+def get_smpl_faces(JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR):
+    smpl = SMPL(JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR, batch_size=1, create_transl=False)
     return smpl.faces
 
 def get_part_joints(smpl_joints):

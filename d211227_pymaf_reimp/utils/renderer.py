@@ -54,10 +54,10 @@ class WeakPerspectiveCamera(pyrender.Camera):
 
 
 class PyRenderer:
-    def __init__(self, resolution=(224, 224), orig_img=False, wireframe=False):
+    def __init__(self, resolution=(224, 224), orig_img=False, wireframe=False, JOINT_MAP=None, JOINT_NAMES=None, J24_TO_J19=None, JOINT_REGRESSOR_TRAIN_EXTRA=None, SMPL_MODEL_DIR=None):
         self.resolution = resolution
 
-        self.faces = get_smpl_faces()
+        self.faces = get_smpl_faces(JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR)
         self.orig_img = orig_img
         self.wireframe = wireframe
         self.renderer = pyrender.OffscreenRenderer(
@@ -160,7 +160,7 @@ class PyRenderer:
 
 
 class OpenDRenderer:
-    def __init__(self, resolution=(224, 224), ratio=1):
+    def __init__(self, resolution=(224, 224), ratio=1, JOINT_MAP=None, JOINT_NAMES=None, J24_TO_J19=None, JOINT_REGRESSOR_TRAIN_EXTRA=None, SMPL_MODEL_DIR=None):
         self.resolution = (resolution[0] * ratio, resolution[1] * ratio)
         self.ratio = ratio
         self.focal_length = 5000.
@@ -177,7 +177,7 @@ class OpenDRenderer:
             'white': np.array([1.0, 0.98, 0.94]),
         }
         self.renderer = ColoredRenderer()
-        self.faces = get_smpl_faces()
+        self.faces = get_smpl_faces(JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR)
 
     def reset_res(self, resolution):
         self.resolution = (resolution[0] * self.ratio, resolution[1] * self.ratio)

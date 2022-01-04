@@ -56,7 +56,7 @@ cd ../../..
 + part 是 2D keypoint, 有 24 个点， 但也是三维的 ; 相应 openpose 也是 2D keypoint 但有 25 个点
 + S 是 3D skeleton， 有 24 个点， 但是四维的
 
-DS | length | imgname | center | scale | pose | shape | part | S | openpose | has_smpl | maskname | partname | gender
+DS | length | imgname (str) | center (2) | scale (1) | pose (72) | shape (10) | part (24, 3) 2D 关节点 | S (24, 4) 3D关节点| openpose | has_smpl | maskname | partname | gender
 :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :----
 h36m | 312188 | S1/S1_Directions_1.54138969/S1_Directions_1.54138969_000001.jpg | 1 | 1 | 1 | 1 | 1 | 1 | | | | | 
 mpii | 14810 (unique 9899) | images/015601864.jpg | 1 | 1 |  |  | 1 |  | 1 | | | | 
@@ -77,3 +77,8 @@ mpi-inf-3dhp | 2929 | TS1/imageSequence/img_000001.jpg | 1 | 1 |  |  | 1 | 1 |  
 coco | 50197(unique 19010) | val2014/COCO_val2014_000000537548.jpg | 1 | 1 |  |  | 1 |  |  |  |  |  | 
 3dpw | 35515(unique 24547) | imageFiles/downtown_enterShop_00/image_00000.jpg | 1 | 1 | 1 | 1 |  |  |  |  |  |  | 1
 
+## Bugs to fix
+
++ [ ] 当设置 mixture 时出现问题，使得 LSP_ori 等不包含 pose, shape, has_smpl 的数据集，出现了 has_sml datas 中存在问题, 问题出在了 runner.FitsDict
++ OpenDRRander 替换为了 pyRender
++ 

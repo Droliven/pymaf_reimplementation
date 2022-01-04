@@ -169,8 +169,8 @@ class IUV_predict_layer(nn.Module):
     def forward(self, x):
         return_dict = {}
 
-        predict_uv_index = self.predict_uv_index(x)
-        predict_ann_index = self.predict_ann_index(x)
+        predict_uv_index = self.predict_uv_index(x) # b, 25, 56, 56
+        predict_ann_index = self.predict_ann_index(x) # [b, 15, 56, 56]]
 
         return_dict['predict_uv_index'] = predict_uv_index
         return_dict['predict_ann_index'] = predict_ann_index

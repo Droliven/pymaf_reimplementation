@@ -72,9 +72,16 @@ class BaseDataset(Dataset):
         self.normalize_img = Normalize(mean=IMG_NORM_MEAN, std=IMG_NORM_STD)
 
         if not is_train and dataset == 'h36m_p2' and eval_pve:
-            self.data = np.load(DATASET_FILES[is_train]['h36m_p2_mosh'], allow_pickle=True)
+            data = np.load(DATASET_FILES[is_train]['h36m_p2_mosh'], allow_pickle=True)
         else:
-            self.data = np.load(DATASET_FILES[is_train][dataset], allow_pickle=True)  # [imgname, center, scale, part]
+            data = np.load(DATASET_FILES[is_train][dataset], allow_pickle=True)  # [imgname, center, scale, part]
+
+        self.data = {}
+        for k in data:
+            if self.is_debug:
+                self.data[k] = data[k][:200]
+            else:
+                self.data[k] = data[k]
 
         self.imgname = self.data['imgname']
         self.dataset_dict = {dataset: 0}
@@ -92,8 +99,8 @@ class BaseDataset(Dataset):
             pass
 
         # Bounding boxes are assumed to be in the center and scale format
-        self.scale = self.data['scale']
-        self.center = self.data['center']
+        self.scale = self.data['scale'] # [n]
+        self.center = self.data['center'] # [n, 2]
 
         # If False, do not do augmentation
         self.use_augmentation = use_augmentation
@@ -102,7 +109,6 @@ class BaseDataset(Dataset):
         try:
             self.pose = self.data['pose'].astype(np.float)  # (N, 72)
             self.shape = self.data['shape'].astype(np.float)  # (N, 10)
-
             ################# generate final_fits file in case of it is missing #################
             # import os
             # params_ = np.concatenate((self.pose, self.shape), axis=-1)
@@ -143,6 +149,7 @@ class BaseDataset(Dataset):
             keypoints_gt = self.data['part']  # 2D keypoint 为什么会有 3维
         except KeyError:
             keypoints_gt = np.zeros((len(self.imgname), 24, 3))
+
         try:
             keypoints_openpose = self.data['openpose']
         except KeyError:
@@ -284,9 +291,9 @@ class BaseDataset(Dataset):
         img = self.rgb_processing(img, center, sc * scale, rot, flip, pn)
         img = torch.from_numpy(img).float()
         # Store image before normalization to use it in visualization
-        item['img'] = self.normalize_img(img) # b, 3, 224, 224
-        item['pose'] = torch.from_numpy(pose).float()
-        item['shape'] = torch.from_numpy(shape).float()
+        item['img'] = self.normalize_img(img) # 3, 224, 224
+        item['pose'] = torch.from_numpy(pose).float() # 72 smpl 3D pose
+        item['shape'] = torch.from_numpy(shape).float() # 10
         item['imgname'] = imgname
 
         # Get 2D SMPL joints, 都没有
@@ -297,7 +304,7 @@ class BaseDataset(Dataset):
             if flip:
                 smpl_2dkps = smpl_2dkps[self.SMPL_JOINTS_FLIP_PERM]
                 smpl_2dkps[:, 0] = - smpl_2dkps[:, 0]
-            item['smpl_2dkps'] = torch.from_numpy(smpl_2dkps).float()
+            item['smpl_2dkps'] = torch.from_numpy(smpl_2dkps).float() # 24, 3
         else:
             item['smpl_2dkps'] = torch.zeros(24, 3, dtype=torch.float32)
 
@@ -307,19 +314,18 @@ class BaseDataset(Dataset):
             item['pose_3d'] = torch.from_numpy(self.j3d_processing(S, rot, flip, kp_is_smpl)).float() # [24, 4], [1], [1], [False] -> [24, 1]
 
         else:
-            item['pose_3d'] = torch.zeros(24, 4, dtype=torch.float32)
+            item['pose_3d'] = torch.zeros(24, 4, dtype=torch.float32) # 对应的 3d 关节点，本来应该是 49，这里怎么是 24
 
 
         # Get 2D keypoints and apply augmentation transforms
         keypoints = self.keypoints[index].copy()
-        item['keypoints'] = torch.from_numpy(
-            self.j2d_processing(keypoints, center, sc * scale, rot, flip, kp_is_smpl)).float()
+        item['keypoints'] = torch.from_numpy(self.j2d_processing(keypoints, center, sc * scale, rot, flip, kp_is_smpl)).float() # 49, 3 # 对应的 2d 关节点，即 [24+25, 3] 前半部分是 part, 后半部分是 openpose
 
         item['has_smpl'] = self.has_smpl[index]
         item['has_pose_3d'] = self.has_pose_3d
         item['scale'] = float(sc * scale)
         item['center'] = center.astype(np.float32)
-        item['orig_shape'] = orig_shape
+        item['orig_shape'] = orig_shape # 2
         item['is_flipped'] = flip
         item['rot_angle'] = np.float32(rot)
         item['gender'] = self.gender[index]
@@ -338,7 +344,4 @@ class BaseDataset(Dataset):
         return item # ['img', 'pose', 'shape', 'imgname', 'smpl_2dkps', 'pose_3d', 'keypoints', 'has_smpl', 'has_pose_3d', 'scale', 'center', 'orig_shape', 'is_flipped', 'rot_angle', 'gender', 'sample_index', 'dataset_name', 'maskname', 'partname']
 
     def __len__(self):
-        if not self.is_debug:
-            return len(self.imgname)
-        else:
-            return 200
+        return len(self.imgname)

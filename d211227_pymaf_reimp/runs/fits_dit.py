@@ -20,7 +20,8 @@ from torchgeometry import angle_axis_to_rotation_matrix, rotation_matrix_to_angl
 
 class FitsDict():
     """ Dictionary keeping track of the best fit per image in the training set """
-    def __init__(self, is_single_dataset, output_dir, train_dataset, SMPL_POSE_FLIP_PERM, FINAL_FITS_DIR):
+    def __init__(self, is_single_dataset, output_dir, train_dataset, is_debug, SMPL_POSE_FLIP_PERM, FINAL_FITS_DIR):
+        self.is_debug = is_debug
 
         self.output_dir = output_dir
         self.train_dataset = train_dataset
@@ -32,22 +33,31 @@ class FitsDict():
         for ds_name, ds in train_dataset.dataset_dict.items():
             if ds_name in ['h36m']:
                 dict_file = os.path.join(FINAL_FITS_DIR, ds_name + '.npy')
-                self.fits_dict[ds_name] = torch.from_numpy(np.load(dict_file))
-                self.valid_fit_state[ds_name] = torch.ones(len(self.fits_dict[ds_name]), dtype=torch.uint8)
+                fits_dict = torch.from_numpy(np.load(dict_file))
+                valid_fit_state = torch.ones(len(fits_dict), dtype=torch.uint8)
             else:
                 dict_file = os.path.join(FINAL_FITS_DIR, ds_name + '.npz')
                 fits_dict = np.load(dict_file)
                 opt_pose = torch.from_numpy(fits_dict['pose'])
                 opt_betas = torch.from_numpy(fits_dict['betas'])
                 opt_valid_fit = torch.from_numpy(fits_dict['valid_fit']).to(torch.uint8)
-                self.fits_dict[ds_name] = torch.cat([opt_pose, opt_betas], dim=1)
-                self.valid_fit_state[ds_name] = opt_valid_fit
+                fits_dict = torch.cat([opt_pose, opt_betas], dim=1)
+                valid_fit_state = opt_valid_fit
 
+            if self.is_debug:
+                self.fits_dict[ds_name] = fits_dict[:200]
+                self.valid_fit_state[ds_name] = valid_fit_state[:200]
+            else:
+                self.fits_dict[ds_name] = fits_dict
+                self.valid_fit_state[ds_name] = valid_fit_state
+
+
+        # todo 这一段操作会更改传入的 train dataset
         if not is_single_dataset:
             for ds in train_dataset.datasets:
                 if ds.dataset not in ['h36m']:
                     ds.pose = self.fits_dict[ds.dataset][:, :72].numpy()
-                    ds.betas = self.fits_dict[ds.dataset][:, 72:].numpy()
+                    ds.shape = self.fits_dict[ds.dataset][:, 72:].numpy()
                     ds.has_smpl = self.valid_fit_state[ds.dataset].numpy()
 
     def save(self):

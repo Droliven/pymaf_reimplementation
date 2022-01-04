@@ -46,7 +46,7 @@ def keypoint_3d_loss(criterion_keypoints, pred_keypoints_3d, gt_keypoints_3d, ha
         return torch.FloatTensor(1).fill_(0.).to(pred_keypoints_3d.device)
 
 
-def shape_loss(criterion_shape, pred_vertices, gt_vertices, has_smpl):
+def vertices_loss(criterion_shape, pred_vertices, gt_vertices, has_smpl):
     """Compute per-vertex loss on the shape for the examples that SMPL annotations are available."""
     pred_vertices_with_shape = pred_vertices[has_smpl]
     gt_vertices_with_shape = gt_vertices[has_smpl]
