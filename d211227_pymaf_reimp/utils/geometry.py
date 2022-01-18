@@ -262,8 +262,7 @@ def projection(pred_joints, pred_camera, retain_z=False):
     return pred_keypoints_2d
 
 
-def perspective_projection(points, rotation, translation,
-                           focal_length, camera_center, retain_z=False):
+def perspective_projection(points, rotation, translation, focal_length, camera_center, retain_z=False):
     """
     This function computes the perspective projection of a set of points.
     Input:
@@ -307,9 +306,9 @@ def estimate_translation_np(S, joints_2d, joints_conf, focal_length=5000, img_si
 
     num_joints = S.shape[0]
     # focal length
-    f = np.array([focal_length, focal_length])
+    f = np.array([focal_length, focal_length]) # 焦距 f
     # optical center
-    center = np.array([img_size / 2., img_size / 2.])
+    center = np.array([img_size / 2., img_size / 2.]) # cx, cy
 
     # transformations
     Z = np.reshape(np.tile(S[:, 2], (2, 1)).T, -1) # 48

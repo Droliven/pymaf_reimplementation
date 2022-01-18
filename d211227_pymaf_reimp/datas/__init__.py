@@ -12,3 +12,4 @@ from .mixed_dataset import MixedDataset
 from .base_dataset import BaseDataset
 from .coco_dataset import COCODataset
 from .inference import Inference
+from .fits_dit import FitsDict

@@ -109,7 +109,6 @@ class BackboneResNet(nn.Module):
 
     def _make_deconv_layer(self, num_layers, num_filters, num_kernels):
         assert num_layers == len(num_filters), 'ERROR: num_deconv_layers is different len(num_deconv_filters)'
-        assert num_layers == len(num_kernels), 'ERROR: num_deconv_layers is different len(num_deconv_filters)'
 
         def _get_deconv_cfg(deconv_kernel, index):
             if deconv_kernel == 4:

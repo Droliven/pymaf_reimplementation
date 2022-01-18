@@ -182,7 +182,7 @@ class PyMAF(nn.Module):
             pred_shape = pred_shape.detach()
             pred_pose = pred_pose.detach()
 
-            s_feat_i = deconv_blocks[rf_i](s_feat)
+            s_feat_i = deconv_blocks[rf_i](s_feat) # [b, 2048, 7, 7] -> [b, 256, 14, 14]
             s_feat = s_feat_i
             vis_feat_list.append(s_feat_i.detach())
 
@@ -206,3 +206,29 @@ class PyMAF(nn.Module):
             out_list['dp_out'].append(iuv_out_dict)
 
         return out_list, vis_feat_list
+
+# if __name__ == '__main__':
+#     # import numpy as np
+#     # import os.path as osp
+#     # import torch
+#     #
+#     # from d211227_pymaf_reimp.cfgs import ConfigPymaf
+#     # from d211227_pymaf_reimp.nets import PyMAF
+#     #
+#     # cfg = ConfigPymaf()
+#     # model = PyMAF(cfg.pymaf_model['BACKBONE'], cfg.res_model['DECONV_WITH_BIAS'], cfg.res_model['NUM_DECONV_LAYERS'],
+#     #               cfg.res_model['NUM_DECONV_FILTERS'],
+#     #               cfg.res_model['NUM_DECONV_KERNELS'], cfg.pymaf_model['MLP_DIM'], cfg.pymaf_model['N_ITER'],
+#     #               cfg.pymaf_model['AUX_SUPV_ON'], cfg.BN_MOMENTUM,
+#     #               cfg.SMPL_MODEL_DIR, cfg.H36M_TO_J14, cfg.LOSS['POINT_REGRESSION_WEIGHTS'], JOINT_MAP=cfg.JOINT_MAP,
+#     #               JOINT_NAMES=cfg.JOINT_NAMES,
+#     #               J24_TO_J19=cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA,
+#     #               device=cfg.device,
+#     #               SMPL_MEAN_PARAMS_PATH=cfg.SMPL_MEAN_PARAMS_PATH, pretrained=True,
+#     #               data_dir=cfg.preprocessed_data_dir).cuda()
+#     #
+#     # img = torch.randn(4, 3, 224, 224).cuda()
+#     #
+#     # outs = model(img)
+#
+#     pass

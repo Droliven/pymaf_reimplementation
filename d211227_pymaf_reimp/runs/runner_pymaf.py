@@ -8,12 +8,11 @@
 @ide     : PyCharm
 @time    : 2021-12-27 15:55
 '''
-from ..datas import MixedDataset, BaseDataset
+from ..datas import MixedDataset, BaseDataset, FitsDict
 from ..nets import PyMAF
 from ..cfgs import ConfigPymaf
 from .losses import smpl_losses, body_uv_losses, vertices_loss, keypoint_loss, keypoint_3d_loss
-from .fits_dit import FitsDict
-from ..utils.geometry import batch_rodrigues, perspective_projection, estimate_translation
+from ..utils.geometry import batch_rodrigues, projection, estimate_translation
 from ..utils.iuvmap import iuv_img2map, iuv_map2img
 from ..utils.renderer import OpenDRenderer, IUV_Renderer, PyRenderer
 from ..utils.pose_utils import compute_similarity_transform_batch
@@ -188,7 +187,7 @@ class RunnerPymaf():
         self.model.train()
 
         # Iterate over all batches in an epoch
-        for step, batch in enumerate(self.train_data_loader, self.checkpoint_batch_idx):
+        for step, batch in tqdm(enumerate(self.train_data_loader, self.checkpoint_batch_idx), total=(len(self.train_data_loader) - self.checkpoint_batch_idx)):
             # ['img', 'pose', 'shape', 'imgname', 'smpl_2dkps', 'pose_3d', 'keypoints', 'has_smpl', 'has_pose_3d', 'scale',
             # 'center', 'orig_shape', 'is_flipped', 'rot_angle', 'gender', 'sample_index', 'dataset_name', 'maskname', 'partname']
             self.step_count += 1
@@ -211,17 +210,10 @@ class RunnerPymaf():
             indices = batch['sample_index']  # index of example inside its dataset [b]
             batch_size = images.shape[0]
 
-            # Get GT vertices and model joints
-            # Note that gt_model_joints is different from gt_joints as it comes from SMPL
-            # todo 弄清楚 这个 SMPL 各种 joint 的意义以及转译过程
-            gt_out = self.smpl(betas=gt_betas, body_pose=gt_pose[:, 3:], global_orient=gt_pose[:, :3])
-            gt_model_joints = gt_out.joints # [b, 49, 3]
-            # gt_vertices = gt_out.vertices # [b, 6890, 3]
-
             # 对于没有真值的才采用其 OPT 参数，Get current best fits from the dictionary
             opt_pose, opt_betas = self.fits_dict[(dataset_name, indices.cpu(), rot_angle.cpu(), is_flipped.cpu())]
-            opt_pose = opt_pose.to(self.cfg.device) # b, 10
-            opt_betas = opt_betas.to(self.cfg.device) # b, 72
+            opt_pose = opt_pose.to(self.cfg.device) # b, 72
+            opt_betas = opt_betas.to(self.cfg.device) # b, 10
 
             # Replace extreme betas with zero betas
             opt_betas[(opt_betas.abs() > 3).any(dim=-1)] = 0.
@@ -243,7 +235,7 @@ class RunnerPymaf():
             # by minimizing a weighted least squares loss
             # gt_cam_t = estimate_translation(gt_model_joints, gt_keypoints_2d_orig, focal_length=self.focal_length, img_size=self.cfg.IMG_RES)
             # todo 弄清楚 这个相机参数到底是什么东西
-            opt_cam_t = estimate_translation(opt_joints, gt_keypoints_2d_orig, focal_length=self.focal_length, img_size=self.cfg.IMG_RES) # [b, 3]
+            opt_cam_t = estimate_translation(opt_joints, gt_keypoints_2d_orig, focal_length=self.focal_length, img_size=self.cfg.IMG_RES) # [b, 3] 这个出来的是 [tx, ty, tz]
 
             # get fitted smpl parameters as pseudo ground truth, todo 这玩意儿代表啥
             valid_fit = self.fits_dict.get_vaild_state(dataset_name, indices.cpu()).to(torch.bool).to(self.cfg.device) # [b]
@@ -257,11 +249,11 @@ class RunnerPymaf():
             if self.cfg.pymaf_model['AUX_SUPV_ON']:
                 gt_cam_t_nr = opt_cam_t.detach().clone()
                 gt_camera = torch.zeros(gt_cam_t_nr.shape).to(gt_cam_t_nr.device)
-                gt_camera[:, 1:] = gt_cam_t_nr[:, :2]
+                gt_camera[:, 1:] = gt_cam_t_nr[:, :2] # [tx, ty, tz] -> [s, tx, ty]
                 gt_camera[:, 0] = (2. * self.focal_length / self.cfg.IMG_RES) / gt_cam_t_nr[:, 2]
                 iuv_image_gt = torch.zeros(
                     (batch_size, 3, self.cfg.pymaf_model['DP_HEATMAP_SIZE'], self.cfg.pymaf_model['DP_HEATMAP_SIZE'])).to(self.cfg.device) # [b, 3, 56, 56]
-                if torch.sum(valid_fit.float()) > 0:
+                if torch.sum(valid_fit.float()) > 0 and self.iuv_maker is not None:
                     iuv_image_gt[valid_fit] = self.iuv_maker.verts2iuvimg(opt_vertices[valid_fit], cam=gt_camera[valid_fit])  # [B, 3, 56, 56]
                 batch['iuv_image_gt'] = iuv_image_gt # # [b, 3, 56, 56]
                 # todo iuv_img2map 是什么
@@ -305,14 +297,14 @@ class RunnerPymaf():
                 if l_i == 0:
                     # initial parameters (mean poses)
                     continue
-                pred_rotmat = preds_dict['smpl_out'][l_i]['rotmat']
+                pred_rotmat = preds_dict['smpl_out'][l_i]['rotmat'] # todo 为什么这里不直接从 [13:85] 里面取
                 pred_betas = preds_dict['smpl_out'][l_i]['theta'][:, 3:13]
-                pred_camera = preds_dict['smpl_out'][l_i]['theta'][:, :3]
+                pred_camera = preds_dict['smpl_out'][l_i]['theta'][:, :3] # 这里出来的是 [s, tx, ty]
 
                 pred_output = self.smpl(betas=pred_betas, body_pose=pred_rotmat[:, 1:],
                                         global_orient=pred_rotmat[:, 0].unsqueeze(1), pose2rot=False)
                 pred_vertices = pred_output.vertices # todo 这里为什么又去构造一次，而不直接去用输出的 vertices
-                pred_joints = pred_output.joints
+                pred_joints = pred_output.joints # 世界坐标系下的 3D
 
                 # Convert Weak Perspective Camera [s, tx, ty] to camera translation [tx, ty, tz] in 3D given the bounding box size
                 # This camera translation can be used in a full perspective projection
@@ -321,15 +313,7 @@ class RunnerPymaf():
                                           2 * self.focal_length / (self.cfg.IMG_RES * pred_camera[:, 0] + 1e-9)],
                                          dim=-1)
 
-                camera_center = torch.zeros(batch_size, 2, device=self.cfg.device)
-                pred_keypoints_2d = perspective_projection(pred_joints,
-                                                           rotation=torch.eye(3, device=self.cfg.device).unsqueeze(
-                                                               0).expand(batch_size, -1, -1),
-                                                           translation=pred_cam_t,
-                                                           focal_length=self.focal_length,
-                                                           camera_center=camera_center)
-                # Normalize keypoints to [-1,1]
-                pred_keypoints_2d = pred_keypoints_2d / (self.cfg.IMG_RES / 2.)
+                pred_keypoints_2d = projection(pred_joints, pred_camera, retain_z=False)
 
                 # Compute loss on SMPL parameters
                 loss_regr_pose, loss_regr_betas = smpl_losses(self.criterion_regr, pred_rotmat, pred_betas, opt_pose, opt_betas, valid_fit)
@@ -356,7 +340,7 @@ class RunnerPymaf():
 
                 # Camera
                 # force the network to predict positive depth values
-                loss_cam = ((torch.exp(-pred_camera[:, 0] * 10)) ** 2).mean()
+                loss_cam = ((torch.exp(-pred_camera[:, 0] * 10)) ** 2).mean()  # 用的是 [s, tx, ty]
                 loss_dict['loss_cam_{}'.format(l_i)] = loss_cam
 
             for key in loss_dict:
@@ -541,13 +525,15 @@ class RunnerPymaf():
                 #     cam=cam_t,
                 #     addlight=True
                 # ))
-
-                render_imgs.append(self.renderer(
-                    smpl_verts,
-                    img=img_vis,
-                    cam=cam_t,
-                    color_type='sky',
-                ))
+                if self.renderer is not None:
+                    render_imgs.append(self.renderer(
+                        smpl_verts,
+                        img=img_vis,
+                        cam=cam_t,
+                        color_type='sky',
+                    ))
+                else:
+                    render_imgs.append(img_vis)
 
                 if self.cfg.pymaf_model['AUX_SUPV_ON']:
                     if stage == 'train':
@@ -564,7 +550,7 @@ class RunnerPymaf():
                                                     preserve_range=True, anti_aliasing=True)
                     render_imgs.append(iuv_image_pred_resized.astype(np.uint8))
 
-                if smpl_verts_pred is not None:
+                if smpl_verts_pred is not None and self.renderer is not None:
                     # render_imgs.append(self.renderer(
                     #     smpl_verts_pred,
                     #     self.smpl.faces,
@@ -579,6 +565,8 @@ class RunnerPymaf():
                         cam=cam_t,
                         color_type='sky',
                     ))
+                else:
+                    render_imgs.append(img_vis)
 
                 img = np.concatenate(render_imgs, axis=1)
                 img = np.transpose(img, (2, 0, 1))

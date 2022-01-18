@@ -79,7 +79,7 @@ class BaseDataset(Dataset):
         self.data = {}
         for k in data:
             if self.is_debug:
-                self.data[k] = data[k][:200]
+                self.data[k] = data[k][:20000]
             else:
                 self.data[k] = data[k]
 

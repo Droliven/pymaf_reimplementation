@@ -8,6 +8,7 @@
 @ide     : PyCharm
 @time    : 2021-12-27 21:27
 '''
+
 '''
 This script is borrowed and extended from https://github.com/nkolot/SPIN/blob/master/train/fits_dict.py
 '''
@@ -45,8 +46,8 @@ class FitsDict():
                 valid_fit_state = opt_valid_fit
 
             if self.is_debug:
-                self.fits_dict[ds_name] = fits_dict[:200]
-                self.valid_fit_state[ds_name] = valid_fit_state[:200]
+                self.fits_dict[ds_name] = fits_dict[:20000]
+                self.valid_fit_state[ds_name] = valid_fit_state[:20000]
             else:
                 self.fits_dict[ds_name] = fits_dict
                 self.valid_fit_state[ds_name] = valid_fit_state
