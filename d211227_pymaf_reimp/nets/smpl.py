@@ -21,13 +21,13 @@ import os.path as osp
 class SMPL(_SMPL):
     """ Extension of the official SMPL implementation to support more joints """
 
-    def __init__(self, JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA, *args, **kwargs):
+    def __init__(self, cfg, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.J24_TO_J19 = J24_TO_J19
+        self.cfg = cfg
 
-        joints = [JOINT_MAP[i] for i in JOINT_NAMES]
-        J_regressor_extra = np.load(JOINT_REGRESSOR_TRAIN_EXTRA)
+        joints = [cfg.constants.joint_map[i] for i in cfg.constants.joint_names]
+        J_regressor_extra = np.load(cfg.run.J_regressor_train_extra_path)
         self.register_buffer('J_regressor_extra', torch.tensor(J_regressor_extra, dtype=torch.float32))
         self.joint_map = torch.tensor(joints, dtype=torch.long)
         self.ModelOutput = namedtuple('ModelOutput_', ModelOutput._fields + ('smpl_joints', 'joints_J19',))
@@ -49,7 +49,7 @@ class SMPL(_SMPL):
         smpl_joints = smpl_output.joints[:, :24] # [b, 24, 3] todo 为什么前 24个点 是这个意思，但总共有 45点
         joints = joints[:, self.joint_map, :]   # [B, 49, 3] todo 为什么从 54 个取出来 49个
         joints_J24 = joints[:, -24:, :] # 为什么一会 24 一会儿 19
-        joints_J19 = joints_J24[:, self.J24_TO_J19, :]
+        joints_J19 = joints_J24[:, self.cfg.constants.j24_to_j19, :]
         output = self.ModelOutput(vertices=vertices, # [b, 6890, 3]
                                   global_orient=smpl_output.global_orient, # [b, 1, 3, 3]
                                   body_pose=smpl_output.body_pose, # [b, 23, 3, 3]

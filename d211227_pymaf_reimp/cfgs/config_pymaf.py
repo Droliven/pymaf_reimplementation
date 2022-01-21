@@ -217,6 +217,10 @@ class ConfigPymaf():
             DATASETS_BASE_DIR = r"/home/ml_group/songbo/danglingwei204/datasets/three_dimension_reconstruction/pymaf_family"
             self.num_works = 4
 
+        elif self.platform == "songbo" and osp.exists(r"/home/songbo/danglingwei209"):
+            DATASETS_BASE_DIR = r"/home/songbo/danglingwei209/datas/pymaf_family"
+            self.num_works = 4
+
         self.preprocessed_data_dir = osp.join(DATASETS_BASE_DIR, 'spin_pymaf_data')
         self.SMPL_MEAN_PARAMS_PATH = osp.join(self.preprocessed_data_dir, 'smpl_mean_params.npz')
         self.SMPL_MODEL_DIR = osp.join(self.preprocessed_data_dir, 'smpl')
@@ -279,7 +283,7 @@ class ConfigPymaf():
         self.single_dataname = "h36m"
         # self.single_dataname = "lsp_orig"
         self.eval_dataset = "h36m_p2_mosh"
-        self.eval_pve = False
+        self.eval_pve = True
         self.noise_factor = 0.4
         self.rot_factor = 30
         self.scale_factor = 0.25

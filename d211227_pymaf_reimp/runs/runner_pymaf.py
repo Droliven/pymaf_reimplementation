@@ -8,9 +8,11 @@
 @ide     : PyCharm
 @time    : 2021-12-27 15:55
 '''
-from ..datas import MixedDataset, BaseDataset, FitsDict
+from d211227_pymaf_reimp.datas.mixed_dataset import MixedDataset
+from d211227_pymaf_reimp.datas.base_dataset import BaseDataset
+from d211227_pymaf_reimp.datas.fits_dit import FitsDict
 from ..nets import PyMAF
-from ..cfgs import ConfigPymaf
+from d211227_pymaf_reimp.cfgs.config_pymaf import ConfigPymaf
 from .losses import smpl_losses, body_uv_losses, vertices_loss, keypoint_loss, keypoint_3d_loss
 from ..utils.geometry import batch_rodrigues, projection, estimate_translation
 from ..utils.iuvmap import iuv_img2map, iuv_map2img
@@ -175,9 +177,9 @@ class RunnerPymaf():
         if "optimizer" in checkpoint:
             self.optimizer.load_state_dict(checkpoint["optimizer"])
 
-        self.epoch_count = checkpoint['epoch']
-        self.step_count = checkpoint['total_step_count']
-        self.checkpoint_batch_idx = checkpoint['batch_idx']
+        # self.epoch_count = checkpoint['epoch']
+        # self.step_count = checkpoint['total_step_count']
+        # self.checkpoint_batch_idx = checkpoint['batch_idx']
 
         print(f"epoch: {checkpoint['epoch']}, batch_idx: {checkpoint['batch_idx']}, batch_size: {checkpoint['batch_size']}, total_step_count: {checkpoint['total_step_count']}")
 
@@ -579,7 +581,6 @@ class RunnerPymaf():
                 self.summary.add_image('{}/mesh_pred'.format(stage), vis_img_full, it)
             else:
                 self.summary.add_image('{}/mesh_pred_{}'.format(stage, it), vis_img_full, self.epoch_count)
-
 
     def run(self):
         # for epoch in tqdm(range(self.epoch_count, self.cfg.epoch_num), total=self.cfg.epoch_num, initial=self.epoch_count):

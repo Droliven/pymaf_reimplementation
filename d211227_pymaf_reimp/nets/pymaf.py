@@ -12,7 +12,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from .smpl import SMPL
 from .backbone_resnet import BackboneResNet
 from .maf_extractor import MAF_Extractor
 from .res_module import IUV_predict_layer
@@ -23,47 +22,44 @@ class PyMAF(nn.Module):
     PyMAF: 3D Human Pose and Shape Regression with Pyramidal Mesh Alignment Feedback Loop, in ICCV, 2021
     """
 
-    def __init__(self, BACKBONE, DECONV_WITH_BIAS, NUM_DECONV_LAYERS, NUM_DECONV_FILTERS, NUM_DECONV_KERNELS, MLP_DIM, N_ITER, AUX_SUPV_ON, BN_MOMENTUM, SMPL_MODEL_DIR, H36M_TO_J14, POINT_REGRESSION_WEIGHTS, SMPL_MEAN_PARAMS_PATH,
-                 JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA, device, pretrained=True, data_dir=r"F:\model_report_data\three_dimension_reconstruction\spin_pymaf_data"):
+    def __init__(self, cfg, pretrained=True):
         super(PyMAF, self).__init__()
 
-        self.BN_MOMENTUM = BN_MOMENTUM
-        self.N_ITER = N_ITER
-        self.AUX_SUPV_ON = AUX_SUPV_ON
+        self.cfg = cfg
 
-        self.feature_extractor = BackboneResNet(model=BACKBONE, pretrained=pretrained)
+        self.feature_extractor = BackboneResNet(model=cfg.train.backbone.name, pretrained=pretrained)
 
         # deconv layers
         self.inplanes = self.feature_extractor.inplanes
-        self.deconv_with_bias = DECONV_WITH_BIAS
+        self.deconv_with_bias = cfg.train.res_model.deconv_with_bias
         self.deconv_layers = self._make_deconv_layer(
-            NUM_DECONV_LAYERS,
-            NUM_DECONV_FILTERS,
-            NUM_DECONV_KERNELS,
+            cfg.train.res_model.num_deconv_layers,
+            cfg.train.res_model.num_deconv_filters,
+            cfg.train.res_model.num_deconv_kernels,
         )
 
         self.maf_extractor = nn.ModuleList()
-        for _ in range(N_ITER):
-            self.maf_extractor.append(MAF_Extractor(device=device, data_dir=data_dir, MLP_DIM=MLP_DIM))
-        ma_feat_len = self.maf_extractor[-1].Dmap.shape[0] * MLP_DIM[-1]
+        for _ in range(cfg.train.backbone.n_iter):
+            self.maf_extractor.append(MAF_Extractor(device=cfg.run.device, data_dir=cfg.run.preprocessed_data_dir, MLP_DIM=cfg.train.backbone.mlp_dim))
+        ma_feat_len = self.maf_extractor[-1].Dmap.shape[0] * cfg.train.backbone.mlp_dim[-1]
 
         grid_size = 21
         xv, yv = torch.meshgrid([torch.linspace(-1, 1, grid_size), torch.linspace(-1, 1, grid_size)])
         points_grid = torch.stack([xv.reshape(-1), yv.reshape(-1)]).unsqueeze(0)
         self.register_buffer('points_grid', points_grid)
-        grid_feat_len = grid_size * grid_size * MLP_DIM[-1]
+        grid_feat_len = grid_size * grid_size * cfg.train.backbone.mlp_dim[-1]
 
         self.regressor = nn.ModuleList()
-        for i in range(N_ITER):
+        for i in range(cfg.train.backbone.n_iter):
             if i == 0:
                 ref_infeat_dim = grid_feat_len  # 2205
             else:
                 ref_infeat_dim = ma_feat_len  # 2155
-            self.regressor.append(Regressor(feat_dim=ref_infeat_dim, smpl_mean_params=SMPL_MEAN_PARAMS_PATH, SMPL_MODEL_DIR=SMPL_MODEL_DIR, H36M_TO_J14=H36M_TO_J14, JOINT_MAP=JOINT_MAP, JOINT_NAMES=JOINT_NAMES, J24_TO_J19=J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=JOINT_REGRESSOR_TRAIN_EXTRA))  # 预训练模型里面是：[6890, 3, 10], 这里是 [6890, 3, 300]
+            self.regressor.append(Regressor(cfg, feat_dim=ref_infeat_dim))  # 预训练模型里面是：[6890, 3, 10], 这里是 [6890, 3, 300]
 
         dp_feat_dim = 256
-        self.with_uv = POINT_REGRESSION_WEIGHTS > 0
-        if AUX_SUPV_ON:
+        self.with_uv = cfg.train.point_regression_weights > 0
+        if cfg.train.backbone.aux_supv_on:
             self.dp_head = IUV_predict_layer(feat_dim=dp_feat_dim)
 
     def _make_layer(self, block, planes, blocks, stride=1):
@@ -121,7 +117,7 @@ class PyMAF(nn.Module):
                     padding=padding,
                     output_padding=output_padding,
                     bias=self.deconv_with_bias))
-            layers.append(nn.BatchNorm2d(planes, momentum=self.BN_MOMENTUM))
+            layers.append(nn.BatchNorm2d(planes, momentum=self.cfg.train.bn_momentum))
             layers.append(nn.ReLU(inplace=True))
             self.inplanes = planes
 
@@ -140,12 +136,12 @@ class PyMAF(nn.Module):
         # spatial features and global features, 为什么经过池化之后的特征叫 global ?
         s_feat, g_feat = self.feature_extractor(x) # [b, 2048, 7, 7], [b, 2048]
 
-        assert self.N_ITER >= 0 and self.N_ITER <= 3
-        if self.N_ITER == 1:
+        assert self.cfg.train.backbone.n_iter >= 0 and self.cfg.train.backbone.n_iter <= 3
+        if self.cfg.train.backbone.n_iter == 1:
             deconv_blocks = [self.deconv_layers]
-        elif self.N_ITER == 2:
+        elif self.cfg.train.backbone.n_iter == 2:
             deconv_blocks = [self.deconv_layers[0:6], self.deconv_layers[6:9]]
-        elif self.N_ITER == 3:
+        elif self.cfg.train.backbone.n_iter == 3:
             deconv_blocks = [self.deconv_layers[0:3], self.deconv_layers[3:6], self.deconv_layers[6:9]]
 
         out_list = {}
@@ -173,10 +169,13 @@ class PyMAF(nn.Module):
         vis_feat_list = [s_feat.detach()]
 
         # parameter predictions
-        for rf_i in range(self.N_ITER):
-            pred_cam = smpl_output['pred_cam'] # [b, 3]
-            pred_shape = smpl_output['pred_shape'] # [b, 10]
+        for rf_i in range(self.cfg.train.backbone.n_iter):
+            # pred_cam = smpl_output['pred_cam'] # [b, 3]
+            # pred_shape = smpl_output['pred_shape'] # [b, 10]
             pred_pose = smpl_output['pred_pose'] # [b, 144]
+            pred_cam = smpl_output['theta'][:, :3]  # [b, 3]
+            pred_shape = smpl_output['theta'][:, 3:13]  # [b, 10]
+
 
             pred_cam = pred_cam.detach()
             pred_shape = pred_shape.detach()
@@ -201,7 +200,7 @@ class PyMAF(nn.Module):
             smpl_output = self.regressor[rf_i](ref_feature, pred_pose, pred_shape, pred_cam, n_iter=1, J_regressor=J_regressor)
             out_list['smpl_out'].append(smpl_output)
 
-        if self.AUX_SUPV_ON:
+        if self.cfg.train.backbone.aux_supv_on:
             iuv_out_dict = self.dp_head(s_feat)
             out_list['dp_out'].append(iuv_out_dict)
 

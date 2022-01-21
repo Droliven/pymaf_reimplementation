@@ -2,42 +2,49 @@
 # encoding: utf-8
 '''
 @project : pymaf_reimp
+@file    : fits_d.py
+@author  : Levon
+@contact : levondang@163.com
+@ide     : PyCharm
+@time    : 2022-01-21 10:13
+'''
+#!/usr/bin/env python
+# encoding: utf-8
+'''
+@project : youhit2022
 @file    : fits_dit.py
 @author  : Levon
 @contact : levondang@163.com
 @ide     : PyCharm
-@time    : 2021-12-27 21:27
+@time    : 2022-01-16 20:24
 '''
-
-'''
-This script is borrowed and extended from https://github.com/nkolot/SPIN/blob/master/train/fits_dict.py
-'''
-import os
-import cv2
 import torch
 import numpy as np
+import os
+import cv2
 from torchgeometry import angle_axis_to_rotation_matrix
 
 
-class FitsDict():
+class FitsD():
     """ Dictionary keeping track of the best fit per image in the training set """
-    def __init__(self, is_single_dataset, output_dir, train_dataset, is_debug, SMPL_POSE_FLIP_PERM, FINAL_FITS_DIR):
+    def __init__(self, is_debug, cfg, is_single_dataset, train_dataset):
         self.is_debug = is_debug
 
-        self.output_dir = output_dir
+        self.cfg = cfg
         self.train_dataset = train_dataset
-        self.fits_dict = {}  # 预存好的伪真值
-        self.valid_fit_state = {} # todo 这玩意儿代表啥
+        self.fits_dict = {}
+        self.valid_fit_state = {}
+
         # array used to flip SMPL pose parameters
-        self.flipped_parts = torch.tensor(SMPL_POSE_FLIP_PERM, dtype=torch.int64)
+        self.flipped_parts = torch.tensor(cfg.constants.smpl_pose_flip_permutation, dtype=torch.int64)
         # Load dictionary state
         for ds_name, ds in train_dataset.dataset_dict.items():
-            if ds_name in ['h36m']:
-                dict_file = os.path.join(FINAL_FITS_DIR, ds_name + '.npy')
+            if ds_name == 'train_h36m':
+                dict_file = os.path.join(cfg.run.final_fits_path, ds_name[6:] + '.npy')
                 fits_dict = torch.from_numpy(np.load(dict_file))
                 valid_fit_state = torch.ones(len(fits_dict), dtype=torch.uint8)
             else:
-                dict_file = os.path.join(FINAL_FITS_DIR, ds_name + '.npz')
+                dict_file = os.path.join(cfg.run.final_fits_path, ds_name[6:] + '.npz')
                 fits_dict = np.load(dict_file)
                 opt_pose = torch.from_numpy(fits_dict['pose'])
                 opt_betas = torch.from_numpy(fits_dict['betas'])
@@ -46,26 +53,26 @@ class FitsDict():
                 valid_fit_state = opt_valid_fit
 
             if self.is_debug:
-                self.fits_dict[ds_name] = fits_dict[:20000]
-                self.valid_fit_state[ds_name] = valid_fit_state[:20000]
-            else:
-                self.fits_dict[ds_name] = fits_dict
-                self.valid_fit_state[ds_name] = valid_fit_state
+                self.fits_dict[ds_name[6:]] = fits_dict[:200]
+                self.valid_fit_state[ds_name[6:]] = valid_fit_state[:200]
 
+            else:
+                self.fits_dict[ds_name[6:]] = fits_dict
+                self.valid_fit_state[ds_name[6:]] = valid_fit_state
 
         # todo 这一段操作会更改传入的 train dataset
         if not is_single_dataset:
             for ds in train_dataset.datasets:
-                if ds.dataset not in ['h36m']:
-                    ds.pose = self.fits_dict[ds.dataset][:, :72].numpy()
-                    ds.shape = self.fits_dict[ds.dataset][:, 72:].numpy()
-                    ds.has_smpl = self.valid_fit_state[ds.dataset].numpy()
+                if ds.dataset != ['train_h36m']:
+                    ds.pose = self.fits_dict[ds.dataset[6:]][:, :72].numpy()
+                    ds.betas = self.fits_dict[ds.dataset[6:]][:, 72:].numpy()
+                    ds.has_smpl = self.valid_fit_state[ds.dataset[6:]].numpy()
 
     def save(self):
         """ Save dictionary state to disk """
         for ds_name in self.train_dataset.dataset_dict.keys():
-            dict_file = os.path.join(self.output_dir, ds_name + '_fits.npy')
-            np.save(dict_file, self.fits_dict[ds_name].cpu().numpy())
+            dict_file = os.path.join(self.cfg.run.output_dir, ds_name[6:] + '.npy')
+            np.save(dict_file, self.fits_dict[ds_name[6:]].cpu().numpy())
 
     def __getitem__(self, x):
         """ Retrieve dictionary entries """
@@ -74,7 +81,7 @@ class FitsDict():
         pose = torch.zeros((batch_size, 72))
         betas = torch.zeros((batch_size, 10))
         for ds, i, n in zip(dataset_name, ind, range(batch_size)):
-            params = self.fits_dict[ds][i]
+            params = self.fits_dict[ds[6:]][i]
             pose[n, :] = params[:72]
             betas[n, :] = params[72:]
         pose = pose.clone()
@@ -87,7 +94,7 @@ class FitsDict():
         batch_size = len(dataset_name)
         valid_fit = torch.zeros(batch_size, dtype=torch.uint8)
         for ds, i, n in zip(dataset_name, ind, range(batch_size)):
-            valid_fit[n] = self.valid_fit_state[ds][i]
+            valid_fit[n] = self.valid_fit_state[ds[6:]][i]
         valid_fit = valid_fit.clone()
         return valid_fit
 
@@ -101,7 +108,7 @@ class FitsDict():
         params = torch.cat((pose, betas), dim=-1).cpu()
         for ds, i, n in zip(dataset_name, ind, range(batch_size)):
             if update[n]:
-                self.fits_dict[ds][i] = params[n]
+                self.fits_dict[ds[6:]][i] = params[n]
 
     def flip_pose(self, pose, is_flipped):
         """flip SMPL pose parameters"""

@@ -14,14 +14,14 @@
 This script can be used to evaluate a trained model on 3D pose/shape and masks/part segmentation. You first need to download the datasets and preprocess them.
 Example usage:
 ```
-python3 eval.py --checkpoint=data/model_checkpoint.pt --dataset=h36m-p1 --log_freq=20
+python3 eval.py --checkpoint=data/model_checkpoint.pt --dataset=h36m_p1 --log_freq=20
 ```
 Running the above command will compute the MPJPE and Reconstruction Error on the Human3.6M dataset (Protocol I). The ```--dataset``` option can take different values based on the type of evaluation you want to perform:
-1. Human3.6M Protocol 1 ```--dataset=h36m-p1```
-2. Human3.6M Protocol 2 ```--dataset=h36m-p2```
+1. Human3.6M Protocol 1 ```--dataset=h36m_p1```
+2. Human3.6M Protocol 2 ```--dataset=h36m_p2```
 3. 3DPW ```--dataset=3dpw```
 4. LSP ```--dataset=lsp```
-5. MPI-INF-3DHP ```--dataset=mpi-inf-3dhp```
+5. MPI-INF-3DHP ```--dataset=mpiinf3dhp```
 """
 
 import os
@@ -42,6 +42,7 @@ from d211227_pymaf_reimp.utils.imutils import uncrop
 from d211227_pymaf_reimp.utils.uv_vis import vis_smpl_iuv
 from d211227_pymaf_reimp.utils.pose_utils import reconstruction_error
 from d211227_pymaf_reimp.utils.part_utils import PartRenderer  # used by lsp
+from d211227_pymaf_reimp.utils.renderer import OpenDRenderer, IUV_Renderer, PyRenderer
 
 
 def run_evaluation(model, dataset):
@@ -53,6 +54,8 @@ def run_evaluation(model, dataset):
     batch_size = args.batch_size
     dataset_name = args.dataset
     result_file = args.result_file
+    is_render_mesh = args.is_render_mesh
+
     num_workers = cfg.num_works
     device = cfg.device
 
@@ -69,6 +72,10 @@ def run_evaluation(model, dataset):
                        create_transl=False).to(device)
 
     renderer = PartRenderer(JOINT_MAP=cfg.JOINT_MAP, JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=cfg.SMPL_MODEL_DIR, VERTEX_TEXTURE_FILE=cfg.VERTEX_TEXTURE_FILE, CUBE_PARTS_FILE=cfg.CUBE_PARTS_FILE)
+    if is_render_mesh:
+        mesh_render = PyRenderer(JOINT_MAP=cfg.JOINT_MAP, JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=cfg.SMPL_MODEL_DIR)
+    else:
+        mesh_render = None
 
     # Regressor for H36m joints
     J_regressor = torch.from_numpy(np.load(cfg.JOINT_REGRESSOR_H36M)).float()
@@ -118,15 +125,15 @@ def run_evaluation(model, dataset):
     eval_parts = False
     # Choose appropriate evaluation for each dataset
     if dataset_name == 'h36m_p1' or dataset_name == 'h36m_p2' or dataset_name == 'h36m_p2_mosh' \
-            or dataset_name == '3dpw' or dataset_name == 'mpi_inf_3dhp' or dataset_name == '3doh50k':
+            or dataset_name == '3dpw' or dataset_name == 'mpiinf3dhp' or dataset_name == '3doh50k':
         eval_pose = True
     elif dataset_name == 'lsp':
         eval_masks = True
         eval_parts = True
         annot_path = cfg.ORIGIN_IMGS_DATASET_FOLDERS['upi_s1h']
 
-    joint_mapper_h36m = cfg.H36M_TO_J17 if dataset_name == 'mpi_inf_3dhp' else cfg.H36M_TO_J14
-    joint_mapper_gt = cfg.J24_TO_J17 if dataset_name == 'mpi_inf_3dhp' else cfg.J24_TO_J14
+    joint_mapper_h36m = cfg.H36M_TO_J17 if dataset_name == 'mpiinf3dhp' else cfg.H36M_TO_J14
+    joint_mapper_gt = cfg.J24_TO_J17 if dataset_name == 'mpiinf3dhp' else cfg.J24_TO_J14
     # Iterate over the entire dataset
     cnt = 0
     results_dict = {'id': [], 'pred': [], 'pred_pa': [], 'gt': []}
@@ -165,6 +172,7 @@ def run_evaluation(model, dataset):
                                        global_orient=pred_rotmat[:, 0].unsqueeze(1), pose2rot=False)
             pred_vertices = pred_output.vertices
 
+
         if save_results:
             rot_pad = torch.tensor([0, 0, 1], dtype=torch.float32, device=device).view(1, 3, 1)
             rotmat = torch.cat((pred_rotmat.view(-1, 3, 3), rot_pad.expand(curr_batch_size * 24, -1, -1)), dim=-1)
@@ -178,7 +186,7 @@ def run_evaluation(model, dataset):
             # Regressor broadcasting
             J_regressor_batch = J_regressor[None, :].expand(pred_vertices.shape[0], -1, -1).to(device)
             # Get 14 ground truth joints
-            if 'h36m' in dataset_name or 'mpi_inf' in dataset_name or '3doh50k' in dataset_name:
+            if 'h36m' in dataset_name or 'mpiinf3dhp' in dataset_name or '3doh50k' in dataset_name:
                 gt_keypoints_3d = batch['pose_3d'].cuda()
                 gt_keypoints_3d = gt_keypoints_3d[:, joint_mapper_gt, :-1]
             # For 3DPW get the 14 common joints from the rendered shape
@@ -275,6 +283,7 @@ def run_evaluation(model, dataset):
         # Print intermediate results during evaluation
         if step % log_freq == log_freq - 1:
             if eval_pose:
+                print('PVE: ' + str(1000 * pve[:step * batch_size].mean()))
                 print('MPJPE: ' + str(1000 * mpjpe[:step * batch_size].mean()))
                 print('Reconstruction Error: ' + str(1000 * recon_err[:step * batch_size].mean()))
                 print()
@@ -286,6 +295,50 @@ def run_evaluation(model, dataset):
                 print('Parts Accuracy: ', parts_accuracy / parts_pixel_count)
                 print('Parts F1 (BG): ', parts_f1[[0, 1, 2, 3, 4, 5, 6]].mean())
                 print()
+
+        # >>>>> 插入可视化 mesh 的部分
+        if is_render_mesh and step == 0:
+            images = images * torch.tensor([0.229, 0.224, 0.225], device=images.device).reshape(1, 3, 1, 1)
+            images = images + torch.tensor([0.485, 0.456, 0.406], device=images.device).reshape(1, 3, 1, 1)
+            imgs_np = images.cpu().numpy()  # [b, 3, 224, 224]
+
+            vis_n = min(curr_batch_size, 16)
+            vis_img = []
+            for b in range(vis_n):
+                cam_t = pred_camera[b].cpu().numpy()
+                if dataset_name == '3dpw':
+                    gt_verts = gt_vertices[b].cpu().numpy()
+                else:
+                    gt_verts = gt_vertices_nt[b].cpu().numpy()
+
+                pred_vert = pred_vertices[b].cpu().numpy()
+
+                render_imgs = []
+
+                img_vis = np.transpose(imgs_np[b], (1, 2, 0)) * 255
+                img_vis = img_vis.astype(np.uint8)
+
+                render_imgs.append(img_vis)
+
+                render_imgs.append(mesh_render(
+                    gt_verts,
+                    img=img_vis,
+                    cam=cam_t,
+                    color_type='sky',
+                ))
+
+                render_imgs.append(mesh_render(
+                    pred_vert,
+                    img=img_vis,
+                    cam=cam_t,
+                    color_type='sky',
+                ))
+                render_imgs = np.concatenate(render_imgs, axis=1) # 224, 224*3, 3
+                render_imgs = np.transpose(render_imgs, (2, 0, 1)) # 3, 224, 224*3
+                vis_img.append(render_imgs)
+
+            vis_img = np.concatenate(vis_img, axis=1)[::-1, :, :]  # 3, 224*b, 224*3
+            cv2.imwrite(f"{dataset_name}_{step}.png", vis_img.transpose(1, 2, 0))
 
     # Save reconstructions to a file for further processing
     if save_results:
@@ -375,15 +428,18 @@ if __name__ == '__main__':
 
     # Define command-line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', choices=['h36m_p1', 'h36m_p2', 'h36m_p2_mosh', 'lsp', '3dpw', 'mpi_inf_3dhp'], default='h36m_p2', help='Choose evaluation dataset')
-    # parser.add_argument('--batch_size', default=32, type=int, help='Batch size for testing')
-    parser.add_argument('--batch_size', default=8, type=int, help='Batch size for testing')
+    parser.add_argument('--dataset', choices=['h36m_p1', 'h36m_p2', 'h36m_p2_mosh', 'lsp', '3dpw', 'mpiinf3dhp'], default='3dpw', help='Choose evaluation dataset')
+    parser.add_argument('--batch_size', default=32, type=int, help='Batch size for testing')
     parser.add_argument('--log_freq', default=50, type=int, help='Frequency of printing intermediate results')
     parser.add_argument('--result_file', default=None, help='If set, save detections to a .npz file')
     parser.add_argument('--ratio', default=1, type=int, help='image size ration for visualization')
-    parser.add_argument('--is_debug', default=False, type=bool, help='')
+    parser.add_argument('--is_render_mesh', default='1', type=bool)
+    parser.add_argument('--is_debug', default='', type=bool)
 
-    parser.add_argument('--checkpoint', default=r"H:\datas\three_dimension_reconstruction\spin_pymaf_data\pretrained_model\PyMAF_model_checkpoint.pt", help='Path to network checkpoint')
+    parser.add_argument('--checkpoint', default=r"G:\second_model_report_data\report_hmr\pymaf_reimp\data20000_epo145\results\d211227_pymaf_reimp\models\model_epoch_00000140.pt", help='Path to network checkpoint')
+    # parser.add_argument('--checkpoint', default=r"G:\second_model_report_data\report_hmr\pymaf_reimp\data20000_single37_60_mix_58_60\results\d211227_pymaf_reimp_mix\models\model_epoch_00000058.pt", help='Path to network checkpoint')
+
+    # parser.add_argument('--checkpoint', default=r"H:\datas\three_dimension_reconstruction\pymaf_family\spin_pymaf_data\pretrained_model\PyMAF_model_checkpoint.pt", help='Path to network checkpoint')
 
     args = parser.parse_args()
     cfg = ConfigPymaf()
@@ -413,7 +469,13 @@ if __name__ == '__main__':
         print(f"loaded from {args.checkpoint}!")
 
     # Setup evaluation dataset
-    dataset = BaseDataset(eval_pve=cfg.eval_pve, noise_factor=cfg.noise_factor, rot_factor=cfg.rot_factor, scale_factor=cfg.scale_factor, dataset=args.dataset, ignore_3d=False, use_augmentation=True, is_train=False, is_debug=args.is_debug, DATASET_FOLDERS=cfg.ORIGIN_IMGS_DATASET_FOLDERS, DATASET_FILES=cfg.PREPROCESSED_DATASET_FILES, JOINT_MAP=cfg.JOINT_MAP, JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=cfg.SMPL_MODEL_DIR, IMG_NORM_MEAN=cfg.IMG_NORM_MEAN, IMG_NORM_STD=cfg.IMG_NORM_STD, TRAIN_BATCH_SIZE=cfg.TRAIN_BATCHSIZE, IMG_RES=cfg.IMG_RES, SMPL_JOINTS_FLIP_PERM=cfg.SMPL_JOINTS_FLIP_PERM)
+    dataset = BaseDataset(eval_pve=cfg.eval_pve, noise_factor=cfg.noise_factor, rot_factor=cfg.rot_factor,
+                          scale_factor=cfg.scale_factor, dataset=args.dataset, ignore_3d=False, use_augmentation=True,
+                          is_train=False, is_debug=args.is_debug, DATASET_FOLDERS=cfg.ORIGIN_IMGS_DATASET_FOLDERS,
+                          DATASET_FILES=cfg.PREPROCESSED_DATASET_FILES, JOINT_MAP=cfg.JOINT_MAP,
+                          JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA,
+                          SMPL_MODEL_DIR=cfg.SMPL_MODEL_DIR, IMG_NORM_MEAN=cfg.IMG_NORM_MEAN, IMG_NORM_STD=cfg.IMG_NORM_STD,
+                          TRAIN_BATCH_SIZE=cfg.TRAIN_BATCHSIZE, IMG_RES=cfg.IMG_RES, SMPL_JOINTS_FLIP_PERM=cfg.SMPL_JOINTS_FLIP_PERM)
 
     # Run evaluation
     run_evaluation(model, dataset)

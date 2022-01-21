@@ -9,4 +9,6 @@
 @time    : 2021-12-27 15:50
 '''
 
-from .config_pymaf import ConfigPymaf
+# from .config_pymaf import ConfigPymaf
+from .basedict import BaseDict
+from .cfg_pymafreimp import get_cfg_pymafreimp

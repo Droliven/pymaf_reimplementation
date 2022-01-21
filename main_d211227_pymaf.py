@@ -40,26 +40,25 @@ seed_torch()
 # ****************************************************************************************************************
 
 import argparse
-import pandas as pd
-from pprint import pprint
+import json
 
-from d211227_pymaf_reimp.runs import RunnerPymaf
+from d211227_pymaf_reimp.runs import RunPymafReimp
 
 parser = argparse.ArgumentParser(description='manual to this script')
 parser.add_argument('--is_load', default='', type=bool)
-parser.add_argument('--is_single_dataset', default='', type=bool)
+parser.add_argument('--is_single_dataset', default='1', type=bool)
 parser.add_argument('--is_debug', default='1', type=bool)
 parser.add_argument('--is_train', default='1', type=bool)
 
-parser.add_argument('--pretrained_checkpoint_path', default="", help='Load a pretrained checkpoint at the beginning training')
+parser.add_argument('--pretrained_checkpoint_path', default=r"G:\second_model_report_data\report_hmr\pymaf_reimp\alldata_single21_mix\results\d211227_pymaf_reimp_single\models\model_epoch_00000021.pt", help='Load a pretrained checkpoint at the beginning training')
 
 args = parser.parse_args()
 
-print("\n================== Arguments =================")
-pprint(vars(args), indent=4)
+print("\n================== Configs =================")
+print(json.dumps(args.__dict__, indent=4, ensure_ascii=False, separators=(", ", ": ")))
 print("==========================================\n")
 
-r = RunnerPymaf(exp_name="d211227_pymaf_reimp", is_debug=args.is_debug, args=args)
+r = RunPymafReimp(exp_name="d211227_pymaf_reimp", is_debug=args.is_debug, args=args)
 
 
 if args.is_load:
@@ -68,6 +67,6 @@ if args.is_load:
 if args.is_train:
     r.run()
 else:
-    pass
+    r.test()
 
 

@@ -8,4 +8,5 @@
 @ide     : PyCharm
 @time    : 2021-12-27 15:51
 '''
-from .runner_pymaf import RunnerPymaf
+# from .runner_pymaf import RunnerPymaf
+from .run_pymafreimp import RunPymafReimp

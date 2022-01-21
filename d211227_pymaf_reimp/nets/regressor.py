@@ -18,10 +18,11 @@ from ..utils.geometry import rot6d_to_rotmat, projection, rotation_matrix_to_ang
 
 
 class Regressor(nn.Module):
-    def __init__(self, feat_dim, smpl_mean_params, SMPL_MODEL_DIR, H36M_TO_J14, JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA):
+    def __init__(self, cfg, feat_dim):
         super(Regressor, self).__init__()
 
-        self.H36M_TO_J14 = H36M_TO_J14
+        self.cfg = cfg
+        self.H36M_TO_J14 = self.cfg.constants.h36m_to_j14
 
         npose = 24 * 6
 
@@ -36,10 +37,10 @@ class Regressor(nn.Module):
         nn.init.xavier_uniform_(self.decshape.weight, gain=0.01)
         nn.init.xavier_uniform_(self.deccam.weight, gain=0.01)
 
-        self.smpl = SMPL(JOINT_MAP, JOINT_NAMES, J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR, batch_size=64, create_transl=False)
+        self.smpl = SMPL(cfg, self.cfg.run.smpl_model_path, batch_size=1, create_transl=False)
 
-        mean_params = np.load(smpl_mean_params)
-        init_pose = torch.from_numpy(mean_params['pose'][:]).unsqueeze(0)
+        mean_params = np.load(self.cfg.run.smpl_mean_params_path)
+        init_pose = torch.from_numpy(mean_params['pose'][:]).unsqueeze(0) # b, 1, 144
         init_shape = torch.from_numpy(mean_params['shape'][:].astype('float32')).unsqueeze(0)
         init_cam = torch.from_numpy(mean_params['cam']).unsqueeze(0)
         self.register_buffer('init_pose', init_pose)
@@ -64,7 +65,7 @@ class Regressor(nn.Module):
         if init_shape is None:
             init_shape = self.init_shape.expand(batch_size, -1)
         if init_cam is None:
-            init_cam = self.init_cam.expand(batch_size, -1)
+            init_cam = self.init_cam.expand(batch_size, -1) # todo 这种 是 txy, 还是 xyz
 
         pred_pose = init_pose
         pred_shape = init_shape
@@ -91,7 +92,7 @@ class Regressor(nn.Module):
         pred_vertices = pred_output.vertices
         pred_joints = pred_output.joints
         pred_smpl_joints = pred_output.smpl_joints
-        pred_keypoints_2d = projection(pred_joints, pred_cam)
+        pred_keypoints_2d = projection(pred_joints, pred_cam) # todo：这里有两个问题，第一 cam 是sxy 还是 xyz? 第二 不同尺度 img_size 都设 224 是不是不合适
         pose = rotation_matrix_to_angle_axis(pred_rotmat.reshape(-1, 3, 3)).reshape(-1, 72)
 
         if J_regressor is not None:
@@ -103,12 +104,10 @@ class Regressor(nn.Module):
         output = {
             'theta'  : torch.cat([pred_cam, pred_shape, pose], dim=1),
             'verts'  : pred_vertices,
-            'kp_2d'  : pred_keypoints_2d,
-            'kp_3d'  : pred_joints,
-            'smpl_kp_3d' : pred_smpl_joints,
+            # 'kp_2d'  : pred_keypoints_2d,
+            # 'kp_3d'  : pred_joints,
+            # 'smpl_kp_3d' : pred_smpl_joints,
             'rotmat' : pred_rotmat,
-            'pred_cam': pred_cam,
-            'pred_shape': pred_shape,
             'pred_pose': pred_pose,
         }
         return output
@@ -160,12 +159,10 @@ class Regressor(nn.Module):
         output = {
             'theta'  : torch.cat([pred_cam, pred_shape, pose], dim=1),
             'verts'  : pred_vertices,
-            'kp_2d'  : pred_keypoints_2d,
-            'kp_3d'  : pred_joints,
-            'smpl_kp_3d' : pred_smpl_joints,
+            # 'kp_2d'  : pred_keypoints_2d,
+            # 'kp_3d'  : pred_joints,
+            # 'smpl_kp_3d' : pred_smpl_joints,
             'rotmat' : pred_rotmat,
-            'pred_cam': pred_cam,
-            'pred_shape': pred_shape,
             'pred_pose': pred_pose,
         }
         return output
