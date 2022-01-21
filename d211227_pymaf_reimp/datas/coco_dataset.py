@@ -28,10 +28,10 @@ from pycocotools.cocoeval import COCOeval
 import json_tricks as json
 import numpy as np
 
-from .base_dataset import BaseDataset
+from .base_ds import BaseDS
 
 
-class COCODataset(BaseDataset):
+class COCODataset(BaseDS):
     '''
     "keypoints": {
         0: "nose",
