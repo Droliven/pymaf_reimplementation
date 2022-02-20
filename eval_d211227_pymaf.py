@@ -434,12 +434,12 @@ if __name__ == '__main__':
     parser.add_argument('--result_file', default=None, help='If set, save detections to a .npz file')
     parser.add_argument('--ratio', default=1, type=int, help='image size ration for visualization')
     parser.add_argument('--is_render_mesh', default='1', type=bool)
-    parser.add_argument('--is_debug', default='', type=bool)
+    parser.add_argument('--is_debug', default='1', type=bool)
 
-    parser.add_argument('--checkpoint', default=r"G:\second_model_report_data\report_hmr\pymaf_reimp\data20000_epo145\results\d211227_pymaf_reimp\models\model_epoch_00000140.pt", help='Path to network checkpoint')
+    # parser.add_argument('--checkpoint', default=r"G:\second_model_report_data\report_hmr\pymaf_reimp\data20000_epo145\results\d211227_pymaf_reimp\models\model_epoch_00000140.pt", help='Path to network checkpoint')
     # parser.add_argument('--checkpoint', default=r"G:\second_model_report_data\report_hmr\pymaf_reimp\data20000_single37_60_mix_58_60\results\d211227_pymaf_reimp_mix\models\model_epoch_00000058.pt", help='Path to network checkpoint')
 
-    # parser.add_argument('--checkpoint', default=r"H:\datas\three_dimension_reconstruction\pymaf_family\spin_pymaf_data\pretrained_model\PyMAF_model_checkpoint.pt", help='Path to network checkpoint')
+    parser.add_argument('--checkpoint', default=r"H:\datas\three_dimension_reconstruction\pymaf_family\spin_pymaf_data\pretrained_model\PyMAF_model_checkpoint.pt", help='Path to network checkpoint')
 
     args = parser.parse_args()
     cfg = ConfigPymaf()

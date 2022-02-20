@@ -111,10 +111,13 @@ class RunPymafReimp():
             # pin_memory=True,
             shuffle=True,
         )
-        valid_ds = BaseDS(is_debug=self.is_debug, cfg=self.cfg, data_cfg=self.cfg.dataset.test_list[2], ignore_3d=False, use_augmentation=True, is_train=False)
+        valid_ds = BaseDS(is_debug=self.is_debug, cfg=self.cfg, data_cfg=self.cfg.dataset.test_list[0], ignore_3d=False, use_augmentation=True, is_train=False) # test_h36mp1
+        # valid_ds = BaseDS(is_debug=self.is_debug, cfg=self.cfg, data_cfg=self.cfg.dataset.test_list[1], ignore_3d=False, use_augmentation=True, is_train=False) # test_h36mp2
+        # valid_ds = BaseDS(is_debug=self.is_debug, cfg=self.cfg, data_cfg=self.cfg.dataset.test_list[5], ignore_3d=False, use_augmentation=True, is_train=False) # 3dpw
         self.valid_loader = DataLoader(
             dataset=valid_ds,
-            batch_size=self.cfg.train.batch_size,
+            # batch_size=self.cfg.train.batch_size,
+            batch_size=32,
             shuffle=False,
             num_workers=self.cfg.run.num_works,
             # pin_memory=True,
@@ -202,6 +205,8 @@ class RunPymafReimp():
         opt_pose, opt_betas = self.fits_dict[(dataset_name, indices.cpu(), rot_angle.cpu(), is_flipped.cpu())]
         opt_pose = opt_pose.to(self.cfg.run.device)
         opt_betas = opt_betas.to(self.cfg.run.device)
+        # Replace extreme betas with zero betas
+        opt_betas[(opt_betas.abs() > 3).any(dim=-1)] = 0.
         # Replace the optimized parameters with the ground truth parameters, if available
         opt_pose[has_smpl, :] = gt_pose[has_smpl, :]
         opt_betas[has_smpl, :] = gt_betas[has_smpl, :]
@@ -372,7 +377,7 @@ class RunPymafReimp():
 
         # Iterate over the entire dataset
         for step, batch in enumerate(
-                tqdm(self.valid_loader, desc=f'--> Test {dataset_name}', total=len(self.valid_loader))):
+                tqdm(self.valid_loader, desc=f">>> Test {dataset_name}", total=len(self.valid_loader))):
             # Get ground truth annotations from the batch
             # De-normalize 2D keypoints from [-1,1] to pixel space
             gt_keypoints_2d_orig = batch['keypoints'].to(self.cfg.run.device)
@@ -446,29 +451,28 @@ class RunPymafReimp():
             r_error, _ = reconstruction_error(pred_keypoints_3d.cpu().numpy(), gt_keypoints_3d.cpu().numpy(), reduction=None)
             pampjpe[step * self.valid_loader.batch_size:step * self.valid_loader.batch_size + curr_batch_size] = r_error
 
-            # if step % 500 == 0:
-            #     print(f'Test {self.valid_loader.dataset.dataset}, step {step} || MPJPE: {1000 * mpjpe.mean()}, PAMPJPE: {1000 * pampjpe.mean()}, PVE: {1000 * pve.mean()}')
+            # print(f'Test {self.valid_loader.dataset.dataset}, step {step} || MPJPE: {1000 * error.mean()}, PAMPJPE: {1000 * r_error.mean()}, PVE: {1000 * per_vertex_error.mean()}')
 
-                # >>>>> 插入可视化 mesh 的部分
-            if step == 0:
-                vis_n = min(curr_batch_size, 4)
-                images = images * torch.tensor([0.229, 0.224, 0.225], device=images.device).reshape(1, 3, 1, 1)
-                images = images + torch.tensor([0.485, 0.456, 0.406], device=images.device).reshape(1, 3, 1, 1)
-
-                gt_cam_t = estimate_translation(gt_keypoints_3d_49, gt_keypoints_2d_orig,
-                                                focal_length=self.cfg.constants.focal_length,
-                                                img_size=self.cfg.constants.img_size[0])
-
-                images = images[:vis_n]
-                pred_cam_t = pred_cam_t[:vis_n]
-                gt_cam_t = gt_cam_t[:vis_n]
-                gt_vertices = gt_vertices[:vis_n]
-                pred_vertices = pred_vertices[:vis_n]
-                if not self.renderer is None:
-                    images_gt = self.renderer.visualize_tb(gt_vertices, gt_cam_t, images)
-                    images_pred = self.renderer.visualize_tb(pred_vertices, pred_cam_t, images)
-                    self.summary.add_image('test/gt_mesh', images_gt, self.step_count)
-                    self.summary.add_image('test/pred_mesh', images_pred, self.step_count)
+            # >>>>> 插入可视化 mesh 的部分
+            # if step == 0:
+            #     vis_n = min(curr_batch_size, 4)
+            #     images = images * torch.tensor([0.229, 0.224, 0.225], device=images.device).reshape(1, 3, 1, 1)
+            #     images = images + torch.tensor([0.485, 0.456, 0.406], device=images.device).reshape(1, 3, 1, 1)
+            #
+            #     gt_cam_t = estimate_translation(gt_keypoints_3d_49, gt_keypoints_2d_orig,
+            #                                     focal_length=self.cfg.constants.focal_length,
+            #                                     img_size=self.cfg.constants.img_size[0])
+            #
+            #     images = images[:vis_n]
+            #     pred_cam_t = pred_cam_t[:vis_n]
+            #     gt_cam_t = gt_cam_t[:vis_n]
+            #     gt_vertices = gt_vertices[:vis_n]
+            #     pred_vertices = pred_vertices[:vis_n]
+            #     if not self.renderer is None:
+            #         images_gt = self.renderer.visualize_tb(gt_vertices, gt_cam_t, images)
+            #         images_pred = self.renderer.visualize_tb(pred_vertices, pred_cam_t, images)
+            #         self.summary.add_image('test/gt_mesh', images_gt, self.step_count)
+            #         self.summary.add_image('test/pred_mesh', images_pred, self.step_count)
 
         self.summary.add_scalar(f"test/pve", 1000 * pve.mean(), self.step_count)
         self.summary.add_scalar(f"test/mpjpe", 1000 * mpjpe.mean(), self.step_count)
@@ -500,7 +504,7 @@ class RunPymafReimp():
                 if self.step_count % self.cfg.train.test_steps == 0:
                     mpjpe, pampjpe, pve = self.test()
                     print(
-                        f'Test {self.valid_loader.dataset.dataset} || MPJPE: {1000 * mpjpe.mean()}, PAMPJPE: {1000 * pampjpe.mean()}, PVE: {1000 * pve.mean()}')
+                        f'Test {self.valid_loader.dataset.dataset} || MPJPE: {mpjpe.mean()}, PAMPJPE: {pampjpe.mean()}, PVE: {pve.mean()}')
 
                 # Save checkpoint every checkpoint_steps steps
                 if self.step_count % self.cfg.train.save_steps == 0:

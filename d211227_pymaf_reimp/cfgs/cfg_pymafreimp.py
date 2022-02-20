@@ -281,6 +281,10 @@ def get_cfg_pymafreimp(exp_name='', is_debug=True):
         cfg_json_dict["run"]["base_data_dir"] = osp.join(r"/home/ml_group/songbo/danglingwei204/datasets/three_dimension_reconstruction/pymaf_family")
         cfg_json_dict["run"]["num_works"] = 4
 
+    elif cfg_json_dict["run"]["platform"] == "songbo" and osp.exists(r"/home/songbo/danglingwei209"):
+        cfg_json_dict["run"]["base_data_dir"] = osp.join(r"/home/songbo/danglingwei209/datas/pymaf_family")
+        cfg_json_dict["run"]["num_works"] = 4
+
     cfg_json_dict["run"]["preprocessed_data_dir"] = osp.join(cfg_json_dict["run"]["base_data_dir"], 'spin_pymaf_data')
 
     cfg_json_dict["run"]["smpl_mean_params_path"] = osp.join(cfg_json_dict["run"]["preprocessed_data_dir"],

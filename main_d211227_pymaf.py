@@ -45,12 +45,14 @@ import json
 from d211227_pymaf_reimp.runs import RunPymafReimp
 
 parser = argparse.ArgumentParser(description='manual to this script')
-parser.add_argument('--is_load', default='', type=bool)
-parser.add_argument('--is_single_dataset', default='1', type=bool)
+parser.add_argument('--is_load', default='1', type=bool)
+parser.add_argument('--is_single_dataset', default='', type=bool)
 parser.add_argument('--is_debug', default='1', type=bool)
-parser.add_argument('--is_train', default='1', type=bool)
+parser.add_argument('--is_train', default='', type=bool)
 
-parser.add_argument('--pretrained_checkpoint_path', default=r"G:\second_model_report_data\report_hmr\pymaf_reimp\alldata_single21_mix\results\d211227_pymaf_reimp_single\models\model_epoch_00000021.pt", help='Load a pretrained checkpoint at the beginning training')
+# parser.add_argument('--pretrained_checkpoint_path', default=r"G:\second_model_report_data\report_hmr\pymaf_reimp\alldata_single21_mix\results\d211227_pymaf_reimp_single\models\model_epoch_00000021.pt", help='Load a pretrained checkpoint at the beginning training')
+# parser.add_argument('--pretrained_checkpoint_path', default=r"H:\datas\three_dimension_reconstruction\pymaf_family\spin_pymaf_data\pretrained_model\PyMAF_model_checkpoint.pt", help='Load a pretrained checkpoint at the beginning training')
+parser.add_argument('--pretrained_checkpoint_path', default=r"/home/ml_group/songbo/danglingwei204/datasets/three_dimension_reconstruction/pymaf_family/spin_pymaf_data/pretrained_model/PyMAF_model_checkpoint.pt", help='Load a pretrained checkpoint at the beginning training')
 
 args = parser.parse_args()
 
@@ -67,6 +69,7 @@ if args.is_load:
 if args.is_train:
     r.run()
 else:
-    r.test()
+    mpjpe, pampjpe, pve = r.test()
+    print(f'Test {r.valid_loader.dataset.dataset} || MPJPE: {mpjpe.mean()}, PAMPJPE: {pampjpe.mean()}, PVE: {pve.mean()}')
 
 
