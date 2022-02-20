@@ -37,7 +37,7 @@ class Regressor(nn.Module):
         nn.init.xavier_uniform_(self.decshape.weight, gain=0.01)
         nn.init.xavier_uniform_(self.deccam.weight, gain=0.01)
 
-        self.smpl = SMPL(cfg, self.cfg.run.smpl_model_path, batch_size=1, create_transl=False)
+        self.smpl = SMPL(cfg, self.cfg.run.smpl_model_path, batch_size=cfg.train.batch_size, create_transl=False)
 
         mean_params = np.load(self.cfg.run.smpl_mean_params_path)
         init_pose = torch.from_numpy(mean_params['pose'][:]).unsqueeze(0) # b, 1, 144

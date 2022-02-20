@@ -33,16 +33,17 @@ import numpy as np
 import torchgeometry as tgm
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from pprint import pprint
+import json
 
-from d211227_pymaf_reimp.datas import BaseDataset
 from d211227_pymaf_reimp.nets import SMPL, PyMAF
-from d211227_pymaf_reimp.cfgs import ConfigPymaf
+from d211227_pymaf_reimp.datas import BaseDS
+from d211227_pymaf_reimp.cfgs import BaseDict, get_cfg_pymafreimp
+
 from d211227_pymaf_reimp.utils.imutils import uncrop
-from d211227_pymaf_reimp.utils.uv_vis import vis_smpl_iuv
+#from d211227_pymaf_reimp.utils.uv_vis import vis_smpl_iuv
 from d211227_pymaf_reimp.utils.pose_utils import reconstruction_error
-from d211227_pymaf_reimp.utils.part_utils import PartRenderer  # used by lsp
-from d211227_pymaf_reimp.utils.renderer import OpenDRenderer, IUV_Renderer, PyRenderer
+# from d211227_pymaf_reimp.utils.part_utils import PartRenderer  # used by lsp
+# from d211227_pymaf_reimp.utils.renderer import OpenDRenderer, IUV_Renderer, PyRenderer
 
 
 def run_evaluation(model, dataset):
@@ -56,29 +57,31 @@ def run_evaluation(model, dataset):
     result_file = args.result_file
     is_render_mesh = args.is_render_mesh
 
-    num_workers = cfg.num_works
-    device = cfg.device
+    num_workers = cfg.run.num_works
+    device = cfg.run.device
 
     # Transfer model to the GPU
     model.to(device)
 
     # Load SMPL model
-    smpl_neutral = SMPL(cfg.JOINT_MAP, cfg.JOINT_NAMES, cfg.J24_TO_J19, cfg.JOINT_REGRESSOR_TRAIN_EXTRA, cfg.SMPL_MODEL_DIR, create_transl=False).to(device)
-    smpl_male = SMPL(cfg.JOINT_MAP, cfg.JOINT_NAMES, cfg.J24_TO_J19, cfg.JOINT_REGRESSOR_TRAIN_EXTRA, cfg.SMPL_MODEL_DIR,
+    smpl_neutral = SMPL(cfg, cfg.run.smpl_model_path, batch_size=cfg.train.batch_size, create_transl=False).to(device)
+    smpl_male = SMPL(cfg, cfg.run.smpl_model_path, batch_size=cfg.train.batch_size,
                      gender='male',
                      create_transl=False).to(device)
-    smpl_female = SMPL(cfg.JOINT_MAP, cfg.JOINT_NAMES, cfg.J24_TO_J19, cfg.JOINT_REGRESSOR_TRAIN_EXTRA, cfg.SMPL_MODEL_DIR,
+    smpl_female = SMPL(cfg, cfg.run.smpl_model_path, batch_size=cfg.train.batch_size,
                        gender='female',
                        create_transl=False).to(device)
 
-    renderer = PartRenderer(JOINT_MAP=cfg.JOINT_MAP, JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=cfg.SMPL_MODEL_DIR, VERTEX_TEXTURE_FILE=cfg.VERTEX_TEXTURE_FILE, CUBE_PARTS_FILE=cfg.CUBE_PARTS_FILE)
-    if is_render_mesh:
-        mesh_render = PyRenderer(JOINT_MAP=cfg.JOINT_MAP, JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=cfg.SMPL_MODEL_DIR)
-    else:
-        mesh_render = None
+    # renderer = PartRenderer(JOINT_MAP=cfg.JOINT_MAP, JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=cfg.SMPL_MODEL_DIR, VERTEX_TEXTURE_FILE=cfg.VERTEX_TEXTURE_FILE, CUBE_PARTS_FILE=cfg.CUBE_PARTS_FILE)
+    # if is_render_mesh:
+    #     mesh_render = PyRenderer(JOINT_MAP=cfg.JOINT_MAP, JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA, SMPL_MODEL_DIR=cfg.SMPL_MODEL_DIR)
+    # else:
+    #     mesh_render = None
+    renderer = None
+    mesh_render = None
 
     # Regressor for H36m joints
-    J_regressor = torch.from_numpy(np.load(cfg.JOINT_REGRESSOR_H36M)).float()
+    J_regressor = torch.from_numpy(np.load(cfg.run.J_regressor_h36m_path)).float()
 
     save_results = result_file is not None
     # Disable shuffling if you want to save the results
@@ -132,15 +135,15 @@ def run_evaluation(model, dataset):
         eval_parts = True
         annot_path = cfg.ORIGIN_IMGS_DATASET_FOLDERS['upi_s1h']
 
-    joint_mapper_h36m = cfg.H36M_TO_J17 if dataset_name == 'mpiinf3dhp' else cfg.H36M_TO_J14
-    joint_mapper_gt = cfg.J24_TO_J17 if dataset_name == 'mpiinf3dhp' else cfg.J24_TO_J14
+    joint_mapper_h36m = cfg.constants.h36m_to_j17 if dataset_name == 'mpiinf3dhp' else cfg.constants.h36m_to_j14
+    joint_mapper_gt = cfg.constants.j24_to_j17 if dataset_name == 'mpiinf3dhp' else cfg.constants.j24_to_j14
     # Iterate over the entire dataset
     cnt = 0
     results_dict = {'id': [], 'pred': [], 'pred_pa': [], 'gt': []}
     for step, batch in enumerate(tqdm(data_loader, desc='Eval', total=len(data_loader))):
         # Get ground truth annotations from the batch
         gt_pose = batch['pose'].to(device)
-        gt_betas = batch['shape'].to(device)
+        gt_betas = batch['betas'].to(device)
         gt_smpl_out = smpl_neutral(betas=gt_betas, body_pose=gt_pose[:, 3:], global_orient=gt_pose[:, :3])
         gt_vertices_nt = gt_smpl_out.vertices
         images = batch['img'].to(device)
@@ -297,7 +300,7 @@ def run_evaluation(model, dataset):
                 print()
 
         # >>>>> 插入可视化 mesh 的部分
-        if is_render_mesh and step == 0:
+        if is_render_mesh and mesh_render is not None and step == 0:
             images = images * torch.tensor([0.229, 0.224, 0.225], device=images.device).reshape(1, 3, 1, 1)
             images = images + torch.tensor([0.485, 0.456, 0.406], device=images.device).reshape(1, 3, 1, 1)
             imgs_np = images.cpu().numpy()  # [b, 3, 224, 224]
@@ -404,7 +407,7 @@ if __name__ == '__main__':
     import os
 
     os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
     def seed_torch(seed=3450):
@@ -428,54 +431,55 @@ if __name__ == '__main__':
 
     # Define command-line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', choices=['h36m_p1', 'h36m_p2', 'h36m_p2_mosh', 'lsp', '3dpw', 'mpiinf3dhp'], default='3dpw', help='Choose evaluation dataset')
+    #parser.add_argument('--dataset', choices=['h36m_p1', 'h36m_p2', 'h36m_p2_mosh', 'lsp', '3dpw', 'mpiinf3dhp'], default='h36m_p1', help='Choose evaluation dataset')
+    parser.add_argument('--dataset', choices=['h36m_p1', 'h36m_p2', 'h36m_p2_mosh', 'lsp', '3dpw', 'mpiinf3dhp'], default='h36m_p2', help='Choose evaluation dataset')
+    # parser.add_argument('--dataset', choices=['h36m_p1', 'h36m_p2', 'h36m_p2_mosh', 'lsp', '3dpw', 'mpiinf3dhp'], default='h36m_p2_mosh', help='Choose evaluation dataset')
+    # parser.add_argument('--dataset', choices=['h36m_p1', 'h36m_p2', 'h36m_p2_mosh', 'lsp', '3dpw', 'mpiinf3dhp'], default='3dpw', help='Choose evaluation dataset')
     parser.add_argument('--batch_size', default=32, type=int, help='Batch size for testing')
     parser.add_argument('--log_freq', default=50, type=int, help='Frequency of printing intermediate results')
     parser.add_argument('--result_file', default=None, help='If set, save detections to a .npz file')
     parser.add_argument('--ratio', default=1, type=int, help='image size ration for visualization')
-    parser.add_argument('--is_render_mesh', default='1', type=bool)
-    parser.add_argument('--is_debug', default='1', type=bool)
+    parser.add_argument('--is_render_mesh', default='', type=bool)
+    parser.add_argument('--is_debug', default='', type=bool)
 
     # parser.add_argument('--checkpoint', default=r"G:\second_model_report_data\report_hmr\pymaf_reimp\data20000_epo145\results\d211227_pymaf_reimp\models\model_epoch_00000140.pt", help='Path to network checkpoint')
     # parser.add_argument('--checkpoint', default=r"G:\second_model_report_data\report_hmr\pymaf_reimp\data20000_single37_60_mix_58_60\results\d211227_pymaf_reimp_mix\models\model_epoch_00000058.pt", help='Path to network checkpoint')
-
-    parser.add_argument('--checkpoint', default=r"H:\datas\three_dimension_reconstruction\pymaf_family\spin_pymaf_data\pretrained_model\PyMAF_model_checkpoint.pt", help='Path to network checkpoint')
+    # parser.add_argument('--checkpoint', default=r"H:\datas\three_dimension_reconstruction\pymaf_family\spin_pymaf_data\pretrained_model\PyMAF_model_checkpoint.pt", help='Path to network checkpoint')
+    parser.add_argument('--checkpoint',
+                        default=r"/home/ml_group/songbo/danglingwei204/datasets/three_dimension_reconstruction/pymaf_family/spin_pymaf_data/pretrained_model/PyMAF_model_checkpoint.pt",
+                        help='Load a pretrained checkpoint at the beginning training')
 
     args = parser.parse_args()
-    cfg = ConfigPymaf()
-    
+    # cfg = ConfigPymaf()
+    cfg = BaseDict(get_cfg_pymafreimp(exp_name="eval", is_debug=args.is_debug))
+
     print("\n================== Arguments =================")
-    pprint(vars(args), indent=4)
+    print(json.dumps(args.__dict__, indent=4, ensure_ascii=False, separators=(", ", ": ")))
     print("==========================================\n")
     
     print("\n================== Configs =================")
-    pprint(vars(cfg), indent=4)
+    print(json.dumps(cfg, indent=4, ensure_ascii=False, separators=(", ", ": ")))
     print("==========================================\n")
 
     # 模型
     # PyMAF model
-    model = PyMAF(cfg.pymaf_model['BACKBONE'], cfg.res_model['DECONV_WITH_BIAS'],
-                       cfg.res_model['NUM_DECONV_LAYERS'], cfg.res_model['NUM_DECONV_FILTERS'],
-                       cfg.res_model['NUM_DECONV_KERNELS'], cfg.pymaf_model['MLP_DIM'],
-                       cfg.pymaf_model['N_ITER'], cfg.pymaf_model['AUX_SUPV_ON'], cfg.BN_MOMENTUM,
-                       cfg.SMPL_MODEL_DIR, cfg.H36M_TO_J14, cfg.LOSS['POINT_REGRESSION_WEIGHTS'],
-                       JOINT_MAP=cfg.JOINT_MAP, JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19,
-                       JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA,
-                       device=cfg.device, SMPL_MEAN_PARAMS_PATH=cfg.SMPL_MEAN_PARAMS_PATH, pretrained=True,
-                       data_dir=cfg.preprocessed_data_dir)
+    model = PyMAF(cfg, pretrained=True)
+
     if args.checkpoint is not None:
         checkpoint = torch.load(args.checkpoint)
         model.load_state_dict(checkpoint['model'], strict=True)
         print(f"loaded from {args.checkpoint}!")
 
     # Setup evaluation dataset
-    dataset = BaseDataset(eval_pve=cfg.eval_pve, noise_factor=cfg.noise_factor, rot_factor=cfg.rot_factor,
-                          scale_factor=cfg.scale_factor, dataset=args.dataset, ignore_3d=False, use_augmentation=True,
-                          is_train=False, is_debug=args.is_debug, DATASET_FOLDERS=cfg.ORIGIN_IMGS_DATASET_FOLDERS,
-                          DATASET_FILES=cfg.PREPROCESSED_DATASET_FILES, JOINT_MAP=cfg.JOINT_MAP,
-                          JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA,
-                          SMPL_MODEL_DIR=cfg.SMPL_MODEL_DIR, IMG_NORM_MEAN=cfg.IMG_NORM_MEAN, IMG_NORM_STD=cfg.IMG_NORM_STD,
-                          TRAIN_BATCH_SIZE=cfg.TRAIN_BATCHSIZE, IMG_RES=cfg.IMG_RES, SMPL_JOINTS_FLIP_PERM=cfg.SMPL_JOINTS_FLIP_PERM)
+    # dataset = BaseDataset(eval_pve=cfg.eval_pve, noise_factor=cfg.noise_factor, rot_factor=cfg.rot_factor,
+    #                       scale_factor=cfg.scale_factor, dataset=args.dataset, ignore_3d=False, use_augmentation=True,
+    #                       is_train=False, is_debug=args.is_debug, DATASET_FOLDERS=cfg.ORIGIN_IMGS_DATASET_FOLDERS,
+    #                       DATASET_FILES=cfg.PREPROCESSED_DATASET_FILES, JOINT_MAP=cfg.JOINT_MAP,
+    #                       JOINT_NAMES=cfg.JOINT_NAMES, J24_TO_J19=cfg.J24_TO_J19, JOINT_REGRESSOR_TRAIN_EXTRA=cfg.JOINT_REGRESSOR_TRAIN_EXTRA,
+    #                       SMPL_MODEL_DIR=cfg.SMPL_MODEL_DIR, IMG_NORM_MEAN=cfg.IMG_NORM_MEAN, IMG_NORM_STD=cfg.IMG_NORM_STD,
+    #                       TRAIN_BATCH_SIZE=cfg.TRAIN_BATCHSIZE, IMG_RES=cfg.IMG_RES, SMPL_JOINTS_FLIP_PERM=cfg.SMPL_JOINTS_FLIP_PERM)
+
+    dataset = BaseDS(is_debug=cfg.run.is_debug, cfg=cfg, data_cfg=cfg.dataset.test_list[1], ignore_3d=False, use_augmentation=True, is_train=False)
 
     # Run evaluation
     run_evaluation(model, dataset)

@@ -82,3 +82,4 @@ coco | 50197(unique 19010) | val2014/COCO_val2014_000000537548.jpg | 1 | 1 |  | 
 + [ ] 当设置 mixture 时出现问题，使得 LSP_ori 等不包含 pose, shape, has_smpl 的数据集，出现了 has_sml datas 中存在问题, 问题出在了 runner.FitsDict
 + OpenDRRander 替换为了 pyRender
 + 用 20000 数据训练之后发现，eval 效果太差，而且人偏瘦。
++ [x] 原版模型测试可以达到论文标称结果，因为之前 test() 里面没有写 self.model.eval(). 

@@ -15,7 +15,7 @@ from ..cfgs import get_cfg_pymafreimp, BaseDict
 from .losses import smpl_losses, body_uv_losses, keypoint_loss, keypoint_3d_loss
 from ..utils.pose_utils import reconstruction_error
 from ..utils.geometry import projection, estimate_translation, rotation_matrix_to_angle_axis
-from ..utils.renderer import SpinPyRenderer, IUV_Renderer
+# from ..utils.renderer import SpinPyRenderer, IUV_Renderer
 # from ..utils.draw_skeleton_in_img import draw_pic_gt_pred_2d
 from ..utils.iuvmap import iuv_img2map, iuv_map2img
 
@@ -71,9 +71,9 @@ class RunPymafReimp():
         self.model = PyMAF(self.cfg, pretrained=True)
         self.smpl = self.model.regressor[0].smpl
         # Load SMPL model
-        self.smpl_neutral = SMPL(self.cfg, self.cfg.run.smpl_model_path, batch_size=1, create_transl=False)
-        self.smpl_male = SMPL(self.cfg, self.cfg.run.smpl_model_path, batch_size=1, gender='male', create_transl=False)
-        self.smpl_female = SMPL(self.cfg, self.cfg.run.smpl_model_path, batch_size=1, gender='female',
+        self.smpl_neutral = SMPL(self.cfg, self.cfg.run.smpl_model_path, batch_size=self.cfg.train.batch_size, create_transl=False)
+        self.smpl_male = SMPL(self.cfg, self.cfg.run.smpl_model_path, batch_size=self.cfg.train.batch_size, gender='male', create_transl=False)
+        self.smpl_female = SMPL(self.cfg, self.cfg.run.smpl_model_path, batch_size=self.cfg.train.batch_size, gender='female',
                                 create_transl=False)
 
         if self.cfg.run.device != "cpu":
@@ -113,11 +113,12 @@ class RunPymafReimp():
         )
         valid_ds = BaseDS(is_debug=self.is_debug, cfg=self.cfg, data_cfg=self.cfg.dataset.test_list[0], ignore_3d=False, use_augmentation=True, is_train=False) # test_h36mp1
         # valid_ds = BaseDS(is_debug=self.is_debug, cfg=self.cfg, data_cfg=self.cfg.dataset.test_list[1], ignore_3d=False, use_augmentation=True, is_train=False) # test_h36mp2
+        # valid_ds = BaseDS(is_debug=self.is_debug, cfg=self.cfg, data_cfg=self.cfg.dataset.test_list[2], ignore_3d=False, use_augmentation=True, is_train=False) # test_h36mp2mosh
         # valid_ds = BaseDS(is_debug=self.is_debug, cfg=self.cfg, data_cfg=self.cfg.dataset.test_list[5], ignore_3d=False, use_augmentation=True, is_train=False) # 3dpw
         self.valid_loader = DataLoader(
             dataset=valid_ds,
-            # batch_size=self.cfg.train.batch_size,
-            batch_size=32,
+            batch_size=self.cfg.train.batch_size,
+            # batch_size=32,
             shuffle=False,
             num_workers=self.cfg.run.num_works,
             # pin_memory=True,
@@ -127,21 +128,24 @@ class RunPymafReimp():
         self.joint_mapper_h36m = self.cfg.constants.h36m_to_j17 if valid_ds.dataset == 'test_mpiinf3dhp' else self.cfg.constants.h36m_to_j14
         self.joint_mapper_gt = self.cfg.constants.j24_to_j17 if valid_ds.dataset == 'test_mpiinf3dhp' else self.cfg.constants.j24_to_j14
 
-        # Create renderer
-        try:
-            # self.renderer = OpenDRenderer()
-            self.renderer = SpinPyRenderer(focal_length=self.cfg.constants.focal_length,
-                                     img_res=self.cfg.constants.img_size[0], faces=self.smpl.faces)
-        except:
-            print('No renderer for visualization.')
-            self.renderer = None
+        # # Create renderer
+        # try:
+        #     # self.renderer = OpenDRenderer()
+        #     self.renderer = SpinPyRenderer(focal_length=self.cfg.constants.focal_length,
+        #                              img_res=self.cfg.constants.img_size[0], faces=self.smpl.faces)
+        # except:
+        #     print('No renderer for visualization.')
+        #     self.renderer = None
+        #
+        # if self.cfg.train.backbone.aux_supv_on:
+        #     try:
+        #         self.iuv_maker = IUV_Renderer(focal_length=self.cfg.constants.focal_length, orig_size=self.cfg.consatants.img_size[0], output_size=self.cfg.train.backbone.dp_heatmap_size, UV_data_path=self.cfg.run.uv_data_path)
+        #     except:
+        #         print('No IUV_Renderer.')
+        #         self.iuv_maker = None
 
-        if self.cfg.train.backbone.aux_supv_on:
-            try:
-                self.iuv_maker = IUV_Renderer(focal_length=self.cfg.constants.focal_length, orig_size=self.cfg.consatants.img_size[0], output_size=self.cfg.train.backbone.dp_heatmap_size, UV_data_path=self.cfg.run.uv_data_path)
-            except:
-                print('No IUV_Renderer.')
-                self.iuv_maker = None
+        self.renderer = None
+        self.iuv_maker = None
 
     def save_checkpoint(self, epoch, is_best=False, performance=-1):
         """Save checkpoint."""
@@ -366,6 +370,7 @@ class RunPymafReimp():
             self.summary.add_scalar(loss_name, val, self.step_count)
 
     def test(self):
+        self.model.eval()
         dataset_name = self.valid_loader.dataset.dataset
         assert dataset_name in ['test_h36mp1', 'test_h36mp2', 'test_h36mp2mosh', 'test_mpiinf3dhp', 'test_3dpw']
 
@@ -378,12 +383,10 @@ class RunPymafReimp():
         # Iterate over the entire dataset
         for step, batch in enumerate(
                 tqdm(self.valid_loader, desc=f">>> Test {dataset_name}", total=len(self.valid_loader))):
+            # # De-normalize 2D keypoints from [-1,1] to pixel space
+            # gt_keypoints_2d_orig = batch['keypoints'].to(self.cfg.run.device)
+            # gt_keypoints_2d_orig[:, :, :-1] = 0.5 * self.cfg.constants.img_size[0] * (gt_keypoints_2d_orig[:, :, :-1] + 1)
             # Get ground truth annotations from the batch
-            # De-normalize 2D keypoints from [-1,1] to pixel space
-            gt_keypoints_2d_orig = batch['keypoints'].to(self.cfg.run.device)
-            gt_keypoints_2d_orig[:, :, :-1] = 0.5 * self.cfg.constants.img_size[0] * (
-                        gt_keypoints_2d_orig[:, :, :-1] + 1)
-
             gt_pose = batch['pose'].to(self.cfg.run.device)
             gt_betas = batch['betas'].to(self.cfg.run.device)
             gt_smpl_outs = self.smpl_neutral(betas=gt_betas, body_pose=gt_pose[:, 3:], global_orient=gt_pose[:, :3])
@@ -418,8 +421,7 @@ class RunPymafReimp():
             if dataset_name == 'test_h36mp1' or dataset_name == 'test_h36mp2' or dataset_name == 'test_h36mp2mosh' or dataset_name == 'test_mpiinf3dhp':
                 gt_keypoints_3d = batch['pose_3d'].to(self.cfg.run.device)
                 gt_keypoints_3d = gt_keypoints_3d[:, self.joint_mapper_gt, :-1]
-                per_vertex_error = torch.sqrt(((pred_vertices - gt_vertices) ** 2).sum(dim=-1)).mean(
-                    dim=-1).cpu().numpy()
+
             # For 3DPW get the 14 common joints from the rendered shape
             elif dataset_name == "test_3dpw":
                 gt_vertices = self.smpl_male(global_orient=gt_pose[:, :3], body_pose=gt_pose[:, 3:],
@@ -432,7 +434,7 @@ class RunPymafReimp():
                 gt_keypoints_3d = gt_keypoints_3d[:, self.joint_mapper_h36m, :]
                 gt_keypoints_3d = gt_keypoints_3d - gt_pelvis
 
-                per_vertex_error = torch.sqrt(((pred_vertices - gt_vertices) ** 2).sum(dim=-1)).mean(
+            per_vertex_error = torch.sqrt(((pred_vertices - gt_vertices) ** 2).sum(dim=-1)).mean(
                     dim=-1).cpu().numpy()
 
             pve[step * self.valid_loader.batch_size:step * self.valid_loader.batch_size + curr_batch_size] = per_vertex_error

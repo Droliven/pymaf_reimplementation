@@ -198,7 +198,7 @@ def get_cfg_pymafreimp(exp_name='', is_debug=True):
             'num_works': 0,
         },
         'train': {
-            'batch_size': 16,
+            'batch_size': 64,
             'gt_train_weight': 1.0,
             'openpose_train_weight': 0.0,
 
