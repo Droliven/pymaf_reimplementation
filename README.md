@@ -1,5 +1,6 @@
 # Pymaf reimplementation
 > Levon 2021.12.27
+**reimplementation of PyMAF (ICCV 2021 Oral), [projrct](https://hongwenzhang.github.io/pymaf/), [paper](https://arxiv.org/pdf/2103.16507.pdf), [code](https://github.com/HongwenZhang/PyMAF)**
 
 ## bugs to fix
 
