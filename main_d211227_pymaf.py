@@ -19,7 +19,7 @@ import torch
 import os
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 def seed_torch(seed=3450):
     # random.seed(seed)
@@ -47,12 +47,12 @@ from d211227_pymaf_reimp.runs import RunPymafReimp
 parser = argparse.ArgumentParser(description='manual to this script')
 parser.add_argument('--is_load', default='1', type=bool)
 parser.add_argument('--is_single_dataset', default='', type=bool)
-parser.add_argument('--is_debug', default='1', type=bool)
+parser.add_argument('--is_debug', default='', type=bool)
 parser.add_argument('--is_train', default='', type=bool)
 
-# parser.add_argument('--pretrained_checkpoint_path', default=r"G:\second_model_report_data\report_hmr\pymaf_reimp\alldata_single21_mix\results\d211227_pymaf_reimp_single\models\model_epoch_00000021.pt", help='Load a pretrained checkpoint at the beginning training')
+parser.add_argument('--pretrained_checkpoint_path', default=r"G:\second_model_report_data\report_hmr\pymaf_reimp\alldata_single21_mix40\results\d211227_pymaf_reimp_single\models\model_epoch_00000021.pt", help='Load a pretrained checkpoint at the beginning training')
 # parser.add_argument('--pretrained_checkpoint_path', default=r"H:\datas\three_dimension_reconstruction\pymaf_family\spin_pymaf_data\pretrained_model\PyMAF_model_checkpoint.pt", help='Load a pretrained checkpoint at the beginning training')
-parser.add_argument('--pretrained_checkpoint_path', default=r"/home/ml_group/songbo/danglingwei204/datasets/three_dimension_reconstruction/pymaf_family/spin_pymaf_data/pretrained_model/PyMAF_model_checkpoint.pt", help='Load a pretrained checkpoint at the beginning training')
+# parser.add_argument('--pretrained_checkpoint_path', default=r"/home/ml_group/songbo/danglingwei204/datasets/three_dimension_reconstruction/pymaf_family/spin_pymaf_data/pretrained_model/PyMAF_model_checkpoint.pt", help='Load a pretrained checkpoint at the beginning training')
 
 args = parser.parse_args()
 
@@ -70,6 +70,7 @@ if args.is_train:
     r.run()
 else:
     mpjpe, pampjpe, pve = r.test()
-    print(f'Test {r.valid_loader.dataset.dataset} || MPJPE: {mpjpe.mean()}, PAMPJPE: {pampjpe.mean()}, PVE: {pve.mean()}')
+    print(
+        f'Test {r.valid_loader.dataset.dataset} || MPJPE: {mpjpe.mean():.4f}, PAMPJPE: {pampjpe.mean():.4f}, PVE: {pve.mean():.4f}')
 
 

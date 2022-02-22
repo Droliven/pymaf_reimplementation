@@ -1,9 +1,13 @@
 # Pymaf reimplementation
 > Levon 2021.12.27
 
-**reimplementation of PyMAF (ICCV 2021 Oral), [projrct](https://hongwenzhang.github.io/pymaf/), [paper](https://arxiv.org/pdf/2103.16507.pdf), [code](https://github.com/HongwenZhang/PyMAF)**. 
+**reimplementation of Pyramidal Mesh Alignment Feedback (PyMAF) (ICCV 2021 Oral), [projrct](https://hongwenzhang.github.io/pymaf/), [paper](https://arxiv.org/pdf/2103.16507.pdf), [code](https://github.com/HongwenZhang/PyMAF)**. 
+
+![Overview of our approach Pyramidal Mesh Alignment Feedback (PyMAF)](assets/pymaf.jpg)
 
 This reimplementation project has been linked to the corresponding [paperwithcode](https://paperswithcode.com/paper/3d-human-pose-and-shape-regression-with) page and the original [arxiv](https://arxiv.org/abs/2103.16507) page.
+
+
 
 ## bugs to fix
 

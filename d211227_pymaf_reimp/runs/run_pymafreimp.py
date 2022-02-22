@@ -35,7 +35,6 @@ import torch.nn.functional as F
 from skimage.transform import resize
 import datetime
 
-
 # from torchgeometry import rotation_matrix_to_angle_axis
 
 
@@ -111,9 +110,9 @@ class RunPymafReimp():
             # pin_memory=True,
             shuffle=True,
         )
-        valid_ds = BaseDS(is_debug=self.is_debug, cfg=self.cfg, data_cfg=self.cfg.dataset.test_list[0], ignore_3d=False, use_augmentation=True, is_train=False) # test_h36mp1
+        # valid_ds = BaseDS(is_debug=self.is_debug, cfg=self.cfg, data_cfg=self.cfg.dataset.test_list[0], ignore_3d=False, use_augmentation=True, is_train=False) # test_h36mp1
         # valid_ds = BaseDS(is_debug=self.is_debug, cfg=self.cfg, data_cfg=self.cfg.dataset.test_list[1], ignore_3d=False, use_augmentation=True, is_train=False) # test_h36mp2
-        # valid_ds = BaseDS(is_debug=self.is_debug, cfg=self.cfg, data_cfg=self.cfg.dataset.test_list[2], ignore_3d=False, use_augmentation=True, is_train=False) # test_h36mp2mosh
+        valid_ds = BaseDS(is_debug=self.is_debug, cfg=self.cfg, data_cfg=self.cfg.dataset.test_list[2], ignore_3d=False, use_augmentation=True, is_train=False) # test_h36mp2mosh
         # valid_ds = BaseDS(is_debug=self.is_debug, cfg=self.cfg, data_cfg=self.cfg.dataset.test_list[5], ignore_3d=False, use_augmentation=True, is_train=False) # 3dpw
         self.valid_loader = DataLoader(
             dataset=valid_ds,
@@ -147,15 +146,16 @@ class RunPymafReimp():
         self.renderer = None
         self.iuv_maker = None
 
-    def save_checkpoint(self, epoch, is_best=False, performance=-1):
+    def save_checkpoint(self, epoch, step, is_best=False, performance=-1):
         """Save checkpoint."""
         checkpoint_filename = os.path.join(self.cfg.run.output_dir, "models",
-                                           f'{self.cfg.run.exp_name}_epoch_{epoch:08d}_performance_{performance:.6f}.pth')
+                                           f'{self.cfg.run.exp_name}_epoch_{epoch:04d}_step_{step:08d}_performance_{performance:.4f}.pth')
 
         checkpoint = {}
         checkpoint["model"] = self.model.state_dict()
         checkpoint["optimizer"] = self.optimizer.state_dict()
         checkpoint['epoch'] = epoch
+        checkpoint['step'] = step
         checkpoint["performance"] = performance
 
         if checkpoint_filename is not None:
@@ -506,11 +506,13 @@ class RunPymafReimp():
                 if self.step_count % self.cfg.train.test_steps == 0:
                     mpjpe, pampjpe, pve = self.test()
                     print(
-                        f'Test {self.valid_loader.dataset.dataset} || MPJPE: {mpjpe.mean()}, PAMPJPE: {pampjpe.mean()}, PVE: {pve.mean()}')
+                        f'Test {self.valid_loader.dataset.dataset} || MPJPE: {mpjpe.mean():.4f}, PAMPJPE: {pampjpe.mean():.4f}, PVE: {pve.mean():.4f}')
+                    if self.best_performance > mpjpe:
+                        self.best_performance = mpjpe
 
                 # Save checkpoint every checkpoint_steps steps
                 if self.step_count % self.cfg.train.save_steps == 0:
-                    self.save_checkpoint(self.epoch_count)
+                    self.save_checkpoint(self.epoch_count, self.step_count, is_best=mpjpe<=self.best_performance, performance=mpjpe)
 
             print()
 

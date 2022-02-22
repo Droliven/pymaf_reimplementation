@@ -20,3 +20,4 @@ results*/
 test/*
 events.out.*
 assets/
+!assets/pymaf.jpg
