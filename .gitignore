@@ -19,5 +19,5 @@ outputs*/
 results*/
 test/*
 events.out.*
-assets/
+assets/*
 !assets/pymaf.jpg
